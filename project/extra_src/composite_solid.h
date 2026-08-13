@@ -12,8 +12,12 @@
 #include "complex_solid.h"
 #include "elastic_solid.h"
 
+#include "base_simulation_builder.h"
+
 namespace SPH
 {
+class EntityManager;
+
 class CompositeSolidMaterial : public CompositeSolid
 {
   public:
@@ -69,6 +73,9 @@ class CompositeSolidMaterial : public CompositeSolid
   protected:
     DiscreteVariable<int> *dv_material_id_;
 };
+
+bool addExtraMaterial(EntityManager &config_manager, SPHBody &sph_body, const json &config, const std::string &type);
+
 } // namespace SPH
 
 #endif // COMPOSITE_SOLID_H

@@ -146,7 +146,7 @@ void MaterialBuilder::addMatterMaterial(
         config_manager.addEntity(sph_body.Name() + "PlasticContinuum", &material);
         return;
     }
-
+#ifdef SPHINXSYS_BUILD_PROJECT
     if (type == "composite_solid")
     {
         Real density = scaling_config.jsonToReal(config.at("density"), "Density");
@@ -159,6 +159,7 @@ void MaterialBuilder::addMatterMaterial(
         config_manager.addEntity(sph_body.Name() + "CompositeSolid", &material);
         return;
     }
+#endif
 
     throw std::runtime_error("MaterialBuilder::addMatterMaterial: unsupported material: " + type);
 }

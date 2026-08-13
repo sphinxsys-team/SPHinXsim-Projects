@@ -4,7 +4,7 @@
 #include "sphinxsys.h"
 
 #ifdef SPHINXSIM_PROJECT
-#include "composite_solid.h"
+#include "sphinxsim_project.h"
 #endif
 
 namespace SPH

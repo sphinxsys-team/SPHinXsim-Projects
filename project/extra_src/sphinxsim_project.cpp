@@ -1,4 +1,4 @@
-#include "composite_solid.h"
+#include "sphinxsim_project.h"
 
 #include "base_body.hpp"
 #include "sphinxsys_entity.h"

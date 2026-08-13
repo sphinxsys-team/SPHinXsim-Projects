@@ -21,28 +21,36 @@
  *                                                                           *
  * ------------------------------------------------------------------------- */
 /**
- * @file    constraint_builder.h
+ * @file    continuum_simulation_builder.h
  * @brief   TBD.
  * @author  Xiangyu Hu
  */
 
-#ifndef CONSTRAINT_BUILDER_H
-#define CONSTRAINT_BUILDER_H
+#ifndef CONTINUUM_SIMULATION_BUILDER_H
+#define CONTINUUM_SIMULATION_BUILDER_H
 
 #include "base_simulation_builder.h"
+#include "continuum_dynamics_builder.h"
 #include "sph_solver.h"
 
 namespace SPH
 {
-class RealBody;
+class EntityManager;
+class ParticleDynamicsGroup;
+template <class T>
+class BaseDynamics;
+class BodyStatesRecording;
+class SPHBody;
 
-class ConstraintBuilder
+class ContinuumSimulationBuilder : public SimulationBuilder
 {
   public:
-    static void buildConstraintsIfPresent(SPHSimulation &sim, MainMethods &method_container, const json &config);
+    void buildSimulation(SPHSimulation &sim, const json &config) override;
+    virtual void parseSolverParameters(EntityManager &config_manager, const json &config) override;
 
   private:
-    static void addConstraint(SPHSimulation &sim, MainMethods &method_container, RealBody &real_body, const json &config);
+    ContinuumSolverParameters parseContinuumSolverParameters(
+        const ScalingConfig &scaling_config, const json &config);
 };
 } // namespace SPH
-#endif // CONSTRAINT_BUILDER_H
+#endif // CONTINUUM_SIMULATION_BUILDER_H

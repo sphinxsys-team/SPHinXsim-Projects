@@ -84,8 +84,9 @@
       "bodies": [
         {
           "name": "MultiPhaseBody",
-          "blocks": ["FillLevel"],
-          "box_shape_inserts": ["EmitterInsert"]
+          "blockers": ["FillLevel"],
+          "box_shape_inserts": ["EmitterInsert"],
+          "relaxation": { "dependent_bodies": ["WallBoundary"] }
         },
         {
           "name": "WallBoundary",
@@ -155,7 +156,7 @@
   "extra_state_recording": [
     {
       "name": "MultiPhaseBody",
-      "variables": [{ "real_type": ["Density"] }]
+      "variables": [{ "real_type": ["Density", "Compression"] }]
     }
   ],
 

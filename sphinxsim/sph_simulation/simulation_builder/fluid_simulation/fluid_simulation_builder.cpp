@@ -21,7 +21,6 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
     //----------------------------------------------------------------------
     SPHSystem &sph_system = sim.defineSPHSystem();
     EntityManager &config_manager = sim.getConfigManager();
-    RecordingBuilder &recording_builder = sim.getRecordingBuilder();
     SPHSolver &sph_solver = sim.defineSPHSolver(*this, config);
     //----------------------------------------------------------------------
     // Creating bodies with inital geometry, materials and particles.
@@ -56,6 +55,7 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
     // Note that there may be data dependence on the sequence of constructions.
     //----------------------------------------------------------------------
     auto &main_methods = sph_solver.getMainMethodContainer();
+    RecordingBuilder::createBodyStatesRecording(sph_system, config_manager, main_methods);
     //----------------------------------------------------------------------
     // Define dependent optional methods using hooking point in stage pipelines.
     //----------------------------------------------------------------------
@@ -141,11 +141,6 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
         auto &update_average_velocity =
             main_methods.addStateDynamics<UpdateAverageVelocityAndAccelerationCK>(elastic_body);
 
-        // The structure's reference normals and signed distance, needed by the
-        // coupling forces and by the per step normal update.
-        auto &elastic_initial_normal =
-            main_methods.addStateDynamics<NormalFromBodyShapeCK>(elastic_body);
-
         auto &elastic_configuration =
             main_methods.addParticleDynamicsGroup()
                 .add(&main_methods.addCellLinkedListDynamics(elastic_body))
@@ -220,7 +215,6 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
             InitializationHookPoint::InitialCondition, [&]()
             {
                 elastic_configuration.exec();
-                elastic_initial_normal.exec();
                 elastic_correction_matrix.exec();
                 elastic_normal_direction.exec(); });
     }
@@ -276,7 +270,7 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
     //----------------------------------------------------------------------
     // Define dependent optional methods using hooking point in stage pipelines.
     //----------------------------------------------------------------------
-    buildExternalForceIfPresent(sim, main_methods, fluid_body, config);
+    buildExternalForceIfPresent(sim, main_methods, config);
     buildTransportVelocityFormulationIfNotFreeSurface(sim, main_methods, fluid_inner, fluid_wall_contact);
     buildViscousForceIfPresent(sim, main_methods, fluid_inner, fluid_wall_contact);
     ThermalDynamicsBuilder::buildThermalDynamicsIfPresent(sim, main_methods, fluid_inner, fluid_wall_contact);
@@ -291,10 +285,10 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
     //----------------------------------------------------------------------
     // Define state recording for visualization the simulation results.
     //----------------------------------------------------------------------
-    auto &body_state_recorder = recording_builder.createBodyStatesRecording(
-        sph_system, config_manager, main_methods, config);
-    recording_builder.buildObservationIfPresent(sim, main_methods, config);
-    recording_builder.buildEnergyRecordingIfPresent(sim, main_methods, config);
+    RecordingBuilder::finalizeBodyStatesRecording(sph_system, config_manager, config);
+    RecordingBuilder::buildObservationIfPresent(sim, main_methods, config);
+    RecordingBuilder::buildEnergyRecordingIfPresent(sim, main_methods, config);
+    auto &body_state_recorder = RecordingBuilder::getBodyStatesRecording(config_manager);
     //----------------------------------------------------------------------
     //	Define preparation or initialization step before the main integration.
     //----------------------------------------------------------------------
@@ -304,9 +298,10 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
         {
             solid_cell_linked_list.exec();
             fluid_configuration.exec();
-            initialization_pipeline.run_hooks(InitializationHookPoint::InitialParticleIndicationTagging);
 
             initialization_pipeline.run_hooks(InitializationHookPoint::InitialCondition);
+            initialization_pipeline.run_hooks(InitializationHookPoint::AfterInitialCondition);
+
             fluid_density_regularization.exec();
             fluid_advection_step_setup.exec();
             fluid_linear_correction_matrix.exec();
@@ -381,7 +376,7 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
                     structure_configuration->exec();
 
                 fluid_configuration.exec();
-                simulation_pipeline.run_hooks(SimulationHookPoint::ParticleIndicationTagging);
+                simulation_pipeline.run_hooks(SimulationHookPoint::AfterUpdateConfiguration);
                 fluid_density_regularization.exec();
                 fluid_advection_step_setup.exec();
                 fluid_linear_correction_matrix.exec();

@@ -5,15 +5,15 @@
 #include "geometry_builder.h"
 #include "material_builder.h"
 #include "particle_generation.h"
-#include "recording_builder.h"
 
 namespace SPH
 {
 //=================================================================================================//
 SPHSimulation::SPHSimulation(const fs::path &config_path)
-    : config_path_(config_path), recording_builder_ptr_(std::make_unique<RecordingBuilder>())
+    : config_path_(config_path)
 {
-    IO::initEnvironment();
+    IOEnvironment &io_env = IO::initEnvironment();
+    io_env.resetInputFolder((config_path_.parent_path()).string(), true);
 }
 //=================================================================================================//
 SPHSimulation::~SPHSimulation() = default;
@@ -76,10 +76,11 @@ void SPHSimulation::generateParticles()
     json config = loadConfig().at("particle_generation");
     if (config.at("build_and_run").get<bool>())
     {
-        particle_generation_ptr_ = std::make_unique<ParticleGeneration>();
-        particle_generation_ptr_->buildParticleGeneration(*this, config.at("settings"));
-        particle_generation_ptr_->runRelaxation();
+        ParticleGeneration particle_generation;
+        particle_generation.buildParticleGeneration(*this, config.at("settings"));
+        particle_generation.runRelaxation();
     }
+    particles_generated_ = true;
 }
 //=================================================================================================//
 void SPHSimulation::buildGeometries()
@@ -92,12 +93,17 @@ void SPHSimulation::buildGeometries()
     executable_simulation_state_ready_ = false;
 }
 //=================================================================================================//
+std::map<std::string, std::pair<std::vector<double>, std::vector<double>>> SPHSimulation::getShapeBounds()
+{
+    return GeometryBuilder::getShapeBoundsFromConfigManager(config_manager_);
+}
+//=================================================================================================//
 void SPHSimulation::buildSimulation()
 {
-    if (!particle_generation_ptr_)
+    if (!particles_generated_)
     {
-        std::cerr << "SPHSimulation::buildSimulation: ParticleGeneration not found. "
-                     "Call createParticlesGeneration() before buildSimulation().\n";
+        std::cerr << "SPHSimulation::buildSimulation: particles not generated. "
+                     "Call generateParticles() before buildSimulation().\n";
         exit(1);
     }
 

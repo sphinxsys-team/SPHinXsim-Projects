@@ -203,7 +203,7 @@ void FluidSimulationBuilder::buildViscousForceIfPresent(
 }
 //=================================================================================================//
 template <class InnerRelationType, class ContactRelationType>
-void FluidSimulationBuilder::buildSurfaceIndicationIfOpenBoundary(
+BaseDynamics<void> *FluidSimulationBuilder::buildSurfaceIndicationIfOpenBoundary(
     SPHSimulation &sim, MainMethods &main_methods,
     InnerRelationType &inner_relation, ContactRelationType &contact_relation)
 {
@@ -226,8 +226,10 @@ void FluidSimulationBuilder::buildSurfaceIndicationIfOpenBoundary(
         simulation_pipeline.insert_hook(
             SimulationHookPoint::AfterUpdateConfiguration, [&]()
             { fluid_surface_indication.exec(); });
+
+        return &fluid_surface_indication;
     }
+    return nullptr;
 }
-//=================================================================================================//
 } // namespace SPH
 #endif // FLUID_SIMULATION_BUILDER_HPP

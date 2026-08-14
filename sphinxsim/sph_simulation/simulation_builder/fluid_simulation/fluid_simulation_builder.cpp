@@ -5,7 +5,6 @@
 
 #include "composite_solid.h"
 #include "force_on_structure.h"
-#include "region_shape_material_id.h"
 #include "structure_surface_motion.h"
 #include "traveling_wave_active_strain.h"
 namespace SPH

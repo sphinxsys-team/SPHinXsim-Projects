@@ -18,9 +18,12 @@ namespace SPH
 class CompositeSolidMaterial : public CompositeSolid
 {
   public:
-    CompositeSolidMaterial(Real rho0, Real youngs_modulus_active,
-                           Real youngs_modulus_1, Real youngs_modulus_2, Real poisson)
-        : CompositeSolid(rho0)
+    CompositeSolidMaterial(
+        Real rho0, Real youngs_modulus_active,
+        Real youngs_modulus_1, Real youngs_modulus_2, Real poisson,
+        StdVec<Shape *> region_shapes, StdVec<int> region_ids, int default_id)
+        : CompositeSolid(rho0), region_shapes_(region_shapes),
+          region_ids_(region_ids), default_id_(default_id)
     {
         add<ActiveModelSolid>(rho0, youngs_modulus_active, poisson);
         add<SaintVenantKirchhoffSolid>(rho0, youngs_modulus_1, poisson);
@@ -31,6 +34,30 @@ class CompositeSolidMaterial : public CompositeSolid
     {
         CompositeSolid::initializeLocalParameters(base_particles);
         dv_material_id_ = base_particles->getVariableByName<int>("MaterialID");
+        auto *dv_pos = base_particles->getVariableByName<Vecd>("Position");
+
+        if (region_shapes_.size() != region_ids_.size())
+        {
+            throw std::runtime_error(
+                "RegionShapeMaterialId: number of region shapes and ids must match.");
+        }
+        // Resolve the id of every particle now, on the host, using the shape
+        // containment query. The first region that contains a particle wins.
+        Vecd *pos = dv_pos->Data();
+        int *material_id = dv_material_id_->Data();
+        for (size_t index_i = 0; index_i != base_particles->TotalRealParticles(); ++index_i)
+        {
+            int assigned = default_id_;
+            for (size_t r = 0; r != region_shapes_.size(); ++r)
+            {
+                if (region_shapes_[r]->checkContain(pos[index_i]))
+                {
+                    assigned = region_ids_[r];
+                    break;
+                }
+            }
+            material_id[index_i] = assigned;
+        }
     }
 
     class ConstituteKernel
@@ -69,6 +96,9 @@ class CompositeSolidMaterial : public CompositeSolid
 
   protected:
     DiscreteVariable<int> *dv_material_id_;
+    StdVec<Shape *> region_shapes_;
+    StdVec<int> region_ids_;
+    int default_id_;
 };
 } // namespace SPH
 

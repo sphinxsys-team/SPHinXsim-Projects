@@ -17,8 +17,21 @@ bool addExtraMaterial(EntityManager &config_manager, SPHBody &sph_body, const js
         Real youngs_active = scaling_config.jsonToReal(config.at("youngs_modulus_active"), "Stress");
         Real youngs_1 = scaling_config.jsonToReal(config.at("youngs_modulus_1"), "Stress");
         Real youngs_2 = scaling_config.jsonToReal(config.at("youngs_modulus_2"), "Stress");
+
+        StdVec<Shape *> region_shapes;
+        StdVec<int> region_ids;
+        const json &region_config = config.at("material_id_regions");
+        for (const auto &region : region_config.at("regions"))
+        {
+            std::string shape_name = region.at("shape").get<std::string>();
+            region_shapes.push_back(&config_manager.getEntity<Shape>(shape_name));
+            region_ids.push_back(region.at("id").get<int>());
+        }
+        int default_id = region_config.at("default_id").get<int>();
+
         auto &material = sph_body.defineMatterMaterial<CompositeSolidMaterial>(
-            density, youngs_active, youngs_1, youngs_2, poisson_ratio);
+            density, youngs_active, youngs_1, youngs_2, poisson_ratio,
+            region_shapes, region_ids, default_id);
         config_manager.addEntity(sph_body.Name() + "CompositeSolid", &material);
         return true;
     }

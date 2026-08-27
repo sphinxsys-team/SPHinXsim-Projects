@@ -84,19 +84,6 @@ void SPHSimulation::generateParticles()
     if (particle_generation_config.at("build_and_run").get<bool>() &&
         restart_config.restore_step_ == 0)
     {
-        // On restart-resume, relaxation must be skipped: it's non-deterministic,
-        // so re-relaxing would produce a layout mismatched with the saved restart XML.
-        bool skip_relaxation = false;
-        if (full_config.contains("solver_parameters") &&
-            full_config.at("solver_parameters").contains("restart"))
-        {
-            const json &restart_config = full_config.at("solver_parameters").at("restart");
-            if (restart_config.contains("restore_step"))
-            {
-                skip_relaxation = restart_config.at("restore_step").get<int>() > 0;
-            }
-        }
-
         ParticleGeneration particle_generation;
         particle_generation.buildParticleGeneration(*this, particle_generation_config.at("settings"));
         particle_generation.runRelaxation();

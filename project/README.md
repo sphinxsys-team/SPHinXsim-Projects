@@ -18,7 +18,6 @@ Another defining characteristic is that the project evolves together with two ot
 - **SPHinXsim** – the software framework that lets you assemble and run complex simulations.
 
 Development flows in both directions:
-v
 
 - **Bottom‑up**: new solvers and simulator features enable more physics to be included in the simulation.
 - **Top‑down**: the need for new physics drives the creation of new solvers or simulator functionality.

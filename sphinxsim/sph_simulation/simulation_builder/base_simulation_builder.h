@@ -39,7 +39,6 @@ enum class SimulationHookPoint
 {
     BeforeMainPhysicalTimeStep,
     BoundaryCondition,
-    MainPhysicalTimeStep,
     CouplingSynchronization,
     PositionConstraint,
     ParticleCreation,
@@ -149,9 +148,9 @@ class SimulationBuilder
     virtual void buildSimulation(SPHSimulation &sim, const json &config) = 0;
     virtual void parseSolverParameters(EntityManager &config_manager, const json &config);
     static void parseScheduledEvents(SPHSimulation &sim, const json &config, bool &on_flag);
+    static RestartConfig parseRestartConfig(const json &config);
 
   protected:
-    RestartConfig parseRestartConfig(const json &config);
     void buildFluidBodies(SPHSystem &sph_system, EntityManager &config_manager, const json &config);
     void buildContinuumBodies(SPHSystem &sph_system, EntityManager &config_manager, const json &config);
     void buildSolidBodies(SPHSystem &sph_system, EntityManager &config_manager, const json &config);

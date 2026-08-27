@@ -73,9 +73,16 @@ void SPHSimulation::generateParticles()
         exit(1);
     }
 
-    json full_config = loadConfig();
-    json config = full_config.at("particle_generation");
-    if (config.at("build_and_run").get<bool>())
+    json config = loadConfig();
+    auto &restart_config = *config_manager_.emplaceEntity<RestartConfig>("RestartConfig");
+    if (config.contains("restart"))
+    {
+        restart_config = SimulationBuilder::parseRestartConfig(config.at("restart"));
+    }
+
+    json particle_generation_config = config.at("particle_generation");
+    if (particle_generation_config.at("build_and_run").get<bool>() &&
+        restart_config.restore_step_ == 0)
     {
         // On restart-resume, relaxation must be skipped: it's non-deterministic,
         // so re-relaxing would produce a layout mismatched with the saved restart XML.
@@ -91,8 +98,8 @@ void SPHSimulation::generateParticles()
         }
 
         ParticleGeneration particle_generation;
-        particle_generation.buildParticleGeneration(*this, config.at("settings"));
-        particle_generation.runRelaxation(skip_relaxation);
+        particle_generation.buildParticleGeneration(*this, particle_generation_config.at("settings"));
+        particle_generation.runRelaxation();
     }
     particles_generated_ = true;
 }

@@ -2,9 +2,18 @@
 
 This document explains the purpose of the repository, describes how to set up a project, and gives important guidance on branching, pull requests, and merges.
 
+## Table of Contents
+- [What is a SPHinXsim Project?](#what-is-a-sphinxsim-project)
+- [How to setup a SPHinXsim Project](#how-to-setup-a-sphinxsim-project)
+- [Branching, Pull Requests, and Merging](#branching-pull-requests-and-merging)
+- [Contributing to a Project](#contributing-to-a-project)
+- [Contributing to SPHinXsim](#contributing-to-sphinxsim)
+- [Contributing to SPHinXsys](#contributing-to-sphinxsys)
+
+
 ## What is a SPHinXsim Project?
 
-A **SPHinXsim Project** to is a long‑term effort to simulate a complex, multi‑physics problem using SPHinXsim as the simulation environment.
+A **SPHinXsim Project** is a long‑term effort to simulate a complex, multi‑physics problem using SPHinXsim as the simulation environment.
 
 ### Ambitious, long‑term goal
 
@@ -33,7 +42,9 @@ Each project lives in its own branch, and the branch name must be the project na
 
 3. `docs/` – documentation for the project and auxiliary files (for example, “skills” definitions that enhance AI‑assisted development).
 
-To help you get started, the repository already includes an example project called `fish-swimming` on its own branch. You can check out that branch and explore its project/ directory to see a concrete, working layout that you can use as a reference when creating your own project (Please do NOT branch from it if working for your own project).
+The repository includes a `project-template` branch that demonstrates the required layout. 
+It is based on a real project (`fish-swimming`) but stripped down to serve as 
+a starting point for new projects.
 
 ## Branching, Pull Requests, and Merging
 
@@ -43,15 +54,57 @@ Project branches are never pushed back to the upstream SPHinXsim repository.
 To keep the main history clean and to control how upstream changes enter the projects, we use two special branches:
 
 - `main` – tracks the upstream SPHinXsim. No direct contributions from project branches are allowed.
-- `project-template` – an intermediate, safeguarded branch. It is the only branch that is allowed to receive updates from upstream (by merging `main` into it).
+- `project-template` – an intermediate, safeguarded branch. 
+It is the only branch that is allowed to receive updates from upstream (by merging `main` into it).
+Changes to the template structure are made only by maintainers through a dedicated process, not via project branches.
 
 All project branches must follow these rules:
 
 - Create project branches exclusively from `project-template`.
 - The only allowed merge from a shared branch is merging `project-template` into your project branch (to pick up template updates).
 - Never merge a project branch directly into `main` or into `project-template`.
+- Never merge one project branch into another project branch.
 
 This workflow ensures that:
 
 - Project branches remain isolated from each other and from the upstream history.
 - Upstream changes flow only through `project-template`, where they can be reviewed and adapted before reaching the projects.
+
+## Contributing to a Project
+
+There are two ways to contribute to a project:
+
+1. **Directly in the project branch** – if you are a core developer or a collaborator of the project, you can commit directly to the project branch. This is the simplest way to contribute. If you are not a core developer, you can request write access to the project branch from the project maintainers.
+2. **Pull requests** – if you are not a core developer, you can fork the repository, 
+create a branch from the project branch, and submit a pull request 
+to the corresponding project branch main project repository. 
+The project maintainers will review your changes and merge them into the project branch if they are accepted.
+
+## Contributing to SPHinXsim
+
+If you find that source code in `extra_src` is useful for other projects and 
+you are considering contributing it to the main SPHinXsim repository. 
+
+If you are a core developer or a collaborator of the SPHinXsim, 
+you can commit directly a feature branch to SPHinXsim  in the main SPHinXsim repository and push your changes there
+without forking SPHinXsim repository. 
+For this, you set the main SPHinXsim repository as a remote and push your changes to it. 
+
+Please note that, in this case, you you need to work on branches created from `main` 
+and follow the SPHinXsim contribution guidelines.
+Therefore, the contribution needs to be moved from the `project/extra_src` folder to 
+a proper subfolder of `sphinxsim` folder and
+equipped with its own tests and documentation other than those in the project.
+
+### Contributing to SPHinXsys
+
+Again, if you are a core developer or a collaborator of SPHinXsys,
+you can commit directly to SPHinXsys.
+For this, you set the main SPHinXsys repository as a remote (different from the one for SPHinXsim).
+The SPHinXsys code is embedded inside SPHinXsim at `sphinxsim/sphinxsys`.
+You can use `git subtree split` to extract only the changes made in that subdirectory and 
+push them to the SPHinXsys repository.”
+
+Also in this case, the contribution or change needs to be restricted to 
+the `sphinxsim/sphinxsys` folder and be equipped with its own tests and documentation 
+other than those in the project or SPHinXsim. 

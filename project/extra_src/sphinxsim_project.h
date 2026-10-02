@@ -1,7 +1,7 @@
 /**
  * @file    sphinxsim_project.h
  * @brief   tbd.
- * @author  Xiangyu Hu
+ * @author  Xiangyu Hu & Han Yang
  */
 
 #ifndef SPHINXSIM_PROJECT_H
@@ -9,8 +9,10 @@
 
 #include "base_simulation_builder.h"
 #include "simulation_scaling.h"
+//=================================================================================================//
 namespace SPH
 {
+//=================================================================================================//
 class EntityManager;
 
 bool addExtraMaterial(
@@ -21,6 +23,14 @@ template <class InnerRelationType>
 bool addExtraSolidRelaxation1stHalf(
     EntityManager &config_manager, ParticleDynamicsGroup &solid_relaxation_1st_half,
     MainMethods &main_methods, InnerRelationType &inner_relation);
-} // namespace SPH
+//=================================================================================================//
+class FluidBody;
+struct FluidSolverConfig;
 
+void addExtraEmitterFeatures(
+    EntityManager &config_manager, MainMethods &main_methods,
+    FluidBody &fluid_body, FluidSolverConfig &fluid_solver_config,
+    StagePipeline<SimulationHookPoint> &simulation_pipeline,const json &config);
+//=================================================================================================//
+} // namespace SPH
 #endif // SPHINXSIM_PROJECT_H

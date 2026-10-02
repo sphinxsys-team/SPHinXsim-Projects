@@ -3,6 +3,10 @@
 #include "material_builder.h"
 #include "sph_simulation.h"
 
+#ifdef SPHINXSIM_PROJECT
+#include "sphinxsim_project.h"
+#endif
+
 namespace SPH
 {
 //=================================================================================================//
@@ -55,7 +59,10 @@ void FluidDynamicsBuilder::addBoundaryCondition(
             SimulationBuilder::parseScheduledEvents(
                 sim, config.at("on_schedule"), fluid_solver_config.emitter_on_);
         }
-
+#ifdef SPHINXSIM_PROJECT
+        addExtraEmitterFeatures(config_manager,main_methods,fluid_body,
+            fluid_solver_config,simulation_pipeline,config);
+#endif
         assignSupplementaryConditions(
             emitter, inflow_condition, config_manager, main_methods, config);
 

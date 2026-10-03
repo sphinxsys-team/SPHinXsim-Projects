@@ -59,7 +59,7 @@
         "name": "Disposer",
         "type": "region",
         "half_size": [0.005, 0.3],
-        "transform": { "translation": [0.795, 0.2], "rotation_angle": 0.0 }
+        "transform": { "translation": [0.805, 0.2], "rotation_angle": 0.0 }
       }
     ]
   },

@@ -15,6 +15,7 @@ void addExtraEmitterFeatures(
     StagePipeline<SimulationHookPoint> &simulation_pipeline,
     const json &config)
 {
+
 }
 //=================================================================================================//
 void addExtraInflowSpeed(
@@ -22,6 +23,7 @@ void addExtraInflowSpeed(
     FluidBody &fluid_body, OrientedBoxByParticle &emitter,
     ParticleDynamicsGroup &inflow_condition, const json &config)
 {
+
 }
 //=================================================================================================//
 } // namespace SPH

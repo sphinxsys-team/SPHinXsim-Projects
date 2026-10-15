@@ -1,7 +1,7 @@
 /**
  * @file    sphinxsim_project.h
  * @brief   tbd.
- * @author  Xiangyu Hu & Han Yang
+ * @author  Xiangyu Hu 
  */
 
 #ifndef SPHINXSIM_PROJECT_H

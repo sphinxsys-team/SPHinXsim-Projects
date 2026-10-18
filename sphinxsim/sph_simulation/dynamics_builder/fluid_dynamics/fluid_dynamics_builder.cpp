@@ -174,19 +174,6 @@ BaseDynamics<void> &FluidDynamicsBuilder::addDensityRegularization(
         addInteractionWithSolidBodies(sim, density_summation, fluid_body);
         density_regularization.add(&density_summation);
 
-        auto &average_compression = main_methods.template addReduceDynamics<AverageCompression>(fluid_body);
-        auto &initialization_pipeline = sim.getInitializationPipeline();
-        initialization_pipeline.insert_hook(
-            InitializationHookPoint::InitialCondition, [&]()
-            { 
-            density_summation.exec();
-            Real average_compression_value = average_compression.exec();
-            std::cout << "\n------------------------------------------------------------" << std::endl;
-            std::cout << "FluidDynamicsBuilder::addDensityRegularization : " 
-                      << "Initial average compression of FluidBody '" << fluid_body.Name() 
-                      << "' is " << average_compression_value << std::endl; 
-            std::cout << "------------------------------------------------------------" << std::endl; });
-
         if (fluid_body.isMatterMaterial<WeaklyCompressibleFluid>())
         {
             density_regularization.add(&addDensityRegularizationForOneBody<WeaklyCompressibleFluid>(
@@ -197,6 +184,19 @@ BaseDynamics<void> &FluidDynamicsBuilder::addDensityRegularization(
             density_regularization.add(&addDensityRegularizationForOneBody<WeaklyCompressibleMixture>(
                 main_methods, fluid_body, fluid_solver_config.surface_type_));
         }
+
+        auto &average_compression = main_methods.template addReduceDynamics<AverageCompression>(fluid_body);
+        auto &initialization_pipeline = sim.getInitializationPipeline();
+        initialization_pipeline.insert_hook(
+            InitializationHookPoint::AfterInitialCondition, [&]()
+            { 
+            density_regularization.exec();
+            Real average_value = average_compression.exec();
+            std::cout << "\n------------------------------------------------------------" << std::endl;
+            std::cout << "FluidDynamicsBuilder::addDensityRegularization : " 
+                      << "Initial average compression of FluidBody '" << fluid_body.Name() 
+                      << "' is " << average_value << std::endl; 
+            std::cout << "------------------------------------------------------------" << std::endl; });
 
         auto &minimum_compression =
             main_methods.template addReduceDynamics<
@@ -210,22 +210,20 @@ BaseDynamics<void> &FluidDynamicsBuilder::addDensityRegularization(
         initialization_pipeline.insert_hook(
             InitializationHookPoint::PreSimulationSanityCheck, [&]()
             {
-            // This bound is calibrated for freshly relaxed particles. A developed free-stream
-            // flow legitimately carries values outside it near the open boundary, so a restored
-            // state would fail a check the continuous run at the same step would also fail. See issue #170.
-            if (config_manager.hasEntity<RestartConfig>("RestartConfig") &&
-                config_manager.getEntity<RestartConfig>("RestartConfig").restore_step_ > 0 &&
-                config_manager.getEntity<FluidSolverConfig>("FluidSolverConfig").surface_type_ == "free_stream")
-                return; 
+            // Compression is only written by the regularization, which the main
+            // initialization step runs later, so compute it here on the initial particles.
+            Real average_value = average_compression.exec();
             auto lower_limit = minimum_compression.exec();
             auto upper_limit = maximum_compression.exec();
-            if (lower_limit.first < 0.95 || upper_limit.first > 1.05 ||
+            Real lower_limit_value = lower_limit.first/ average_value;
+            Real upper_limit_value = upper_limit.first / average_value;
+            if (lower_limit_value  < 0.95 || upper_limit_value > 1.05 ||
                 std::isnan(lower_limit.first) || std::isnan(upper_limit.first))
             {
                 std::cout << "\n------------------------------------------------------------" << std::endl;
                 std::cout << "Error: Compression is out of range!" << std::endl;
-                std::cout << "Lower limit: " << lower_limit.first << " at particle " << lower_limit.second << std::endl;
-                std::cout << "Upper limit: " << upper_limit.first << " at particle " << upper_limit.second << std::endl;
+                std::cout << "Lower limit: " << lower_limit_value << " at particle " << lower_limit.second << std::endl;
+                std::cout << "Upper limit: " << upper_limit_value << " at particle " << upper_limit.second << std::endl;
                 std::cout << "The possible issues are the following:" << std::endl;
                 std::cout << "- Too large: overlapped bodies" << std::endl;
                 std::cout << "- Too small: insufficient resolution due to thin layer" << std::endl;
@@ -306,12 +304,19 @@ void FluidDynamicsBuilder::buildSurfaceIndicationIfOpenBoundary(
     {
         auto &initialization_pipeline = sim.getInitializationPipeline();
         initialization_pipeline.insert_hook(
-            InitializationHookPoint::AfterInitialCondition, [&]()
+            InitializationHookPoint::InitialCondition, [&]()
             { all_surface_indication.exec(); });
         auto &simulation_pipeline = sim.getSimulationPipeline();
         simulation_pipeline.insert_hook(
             SimulationHookPoint::AfterUpdateConfiguration, [&]()
             { all_surface_indication.exec(); });
+
+        if (config_manager.getEntity<RestartConfig>("RestartConfig").restore_step_ != 0)
+        {
+            initialization_pipeline.insert_hook(
+                InitializationHookPoint::UpdateStateAfterRestart, [&]()
+                { all_surface_indication.exec(); });
+        }
     }
 }
 //=================================================================================================//

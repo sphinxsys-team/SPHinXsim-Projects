@@ -1,0 +1,3783 @@
+[1mdiff --git a/project/project/README.md b/project/project/README.md[m
+[1mnew file mode 100644[m
+[1mindex 00000000..0ceb79ba[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/README.md[m
+[36m@@ -0,0 +1,33 @@[m
+[32m+[m[32m# Instructions for developing C++ SPHinXsim simulator[m
+[32m+[m
+[32m+[m[32mAll C++ development from the SPHinXsim contributor need to go through a two-step pattern.[m
+[32m+[m
+[32m+[m[32m- First, the new feature is added through small project in `project/`.[m
+[32m+[m[32m- Second, after a successful project the new new feature will be moved into `sphinxsim/sph_simulation/`.[m
+[32m+[m
+[32m+[m[32m## How to setup a small SPHinXsim Project[m
+[32m+[m
+[32m+[m[32mEach C++ development project lives in its own branch. All project‑specific files are stored in a directory called `project/` at the repository root. That directory has a fixed internal structure:[m
+[32m+[m
+[32m+[m[32m1. `extra_src/` – C++ source code that is needed to build the simulation but is not part of the core libraries.[m
+[32m+[m[32m   An umbrella header `sphinxsim_project.h` (or `sphinxsim_project.hpp` for template functions) must be provided; it should include all extra classes and functions.[m
+[32m+[m
+[32m+[m[32m2. `simulation/` – contains all (2d and 3d) simulation cases. Each case resides in a sub‑folder named after the case. A case folder includes the JSON configuration file and any assets (e.g., geometry files, initial conditions).[m
+[32m+[m
+[32m+[m[32m3. `docs/` – documentation for the project and auxiliary files (for example, “skills” definitions that enhance AI‑assisted development).[m
+[32m+[m
+[32m+[m[32m4. Interface to `sphinxsim/sph_simulation/` - In all cases, only small interface patch is allowed to add to the origin files. Generally two types with `SPHINXSIM_PROJECT` macro. One including the `sphinxsim_project.h` or `sphinxsim_project.hpp` header. Another is the call to a function defined in the header.[m
+[32m+[m
+[32m+[m[32m5. Exception - One need contact the maintainer if anything above can not be followed.[m
+[32m+[m
+[32m+[m[32m## Two-step pull requests[m
+[32m+[m
+[32m+[m[32mAccording the two-step approach, a pull request ready for review should be in small project form.[m[41m [m
+[32m+[m
+[32m+[m[32m- The pull request will be reviewed and changes are request until the project itself is OK.[m
+[32m+[m
+[32m+[m[32m- Then, the contribution will be requested to be moved into `sphinxsim/sph_simulation/` and clean `project/` so that only empty functions left in `sphinxsim_project.h` or `sphinxsim_project.hpp` header are kept. So the other project can be started from blank.[m
+[32m+[m
+[32m+[m[32m- The tests for the project will be moved to `tests/` in their proper sub-directories.[m
+[32m+[m
+[32m+[m[32m- Bug fix and other local enhancement will still follow the usual one-step approach.[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/extra_src/CMakeLists.txt b/project/project/extra_src/CMakeLists.txt[m
+[1mnew file mode 100644[m
+[1mindex 00000000..8eb174fa[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/extra_src/CMakeLists.txt[m
+[36m@@ -0,0 +1,7 @@[m
+[32m+[m[32mSUBDIRLIST(SUBDIRS ${CMAKE_CURRENT_SOURCE_DIR})[m
+[32m+[m
+[32m+[m[32mforeach(subdir ${SUBDIRS})[m
+[32m+[m[32m    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/CMakeLists.txt)[m
+[32m+[m	[32m    add_subdirectory(${subdir})[m
+[32m+[m[32m    endif()[m
+[32m+[m[32mendforeach()[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/extra_src/casting_inflow_speed.h b/project/project/extra_src/casting_inflow_speed.h[m
+[1mnew file mode 100644[m
+[1mindex 00000000..81c3d7da[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/extra_src/casting_inflow_speed.h[m
+[36m@@ -0,0 +1,44 @@[m
+[32m+[m[32m#ifndef CASTING_INFLOW_SPEED_H[m
+[32m+[m[32m#define CASTING_INFLOW_SPEED_H[m
+[32m+[m
+[32m+[m[32m#include "base_data_type.h"[m
+[32m+[m
+[32m+[m[32mnamespace SPH[m
+[32m+[m[32m{[m
+[32m+[m
+[32m+[m[32mstruct CastingInflowSpeed[m
+[32m+[m[32m{[m
+[32m+[m[32m    Real normal_speed_;[m
+[32m+[m[32m    Real triggered_speed_;[m
+[32m+[m[32m    Real deceleration_time_;[m
+[32m+[m[32m    Real *trigger_time_;[m
+[32m+[m
+[32m+[m[32m    CastingInflowSpeed(Real normal_speed, Real triggered_speed, Real deceleration_time, Real *trigger_time)[m
+[32m+[m[32m        : normal_speed_(normal_speed), triggered_speed_(triggered_speed),[m
+[32m+[m[32m          deceleration_time_(deceleration_time), trigger_time_(trigger_time) {}[m
+[32m+[m
+[32m+[m[32m    Real getAxisVelocity([m
+[32m+[m[32m        const Vecd &,[m
+[32m+[m[32m        const Real &,[m
+[32m+[m[32m        Real physical_time)[m
+[32m+[m[32m    {[m
+[32m+[m[32m        if (*trigger_time_ < 0.0)[m
+[32m+[m[32m        {[m
+[32m+[m[32m            return normal_speed_;[m
+[32m+[m[32m        }[m
+[32m+[m[32m        Real elapsed_time = physical_time - *trigger_time_;[m
+[32m+[m
+[32m+[m[32m        if (elapsed_time >= deceleration_time_)[m
+[32m+[m[32m        {[m
+[32m+[m[32m            return triggered_speed_;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        Real ratio =elapsed_time / deceleration_time_;[m
+[32m+[m[32m        Real smooth_ratio = ratio * ratio * (3.0 - 2.0 * ratio);[m
+[32m+[m[32m        return normal_speed_ +smooth_ratio * (triggered_speed_ - normal_speed_);[m
+[32m+[m[32m    }[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32m} // namespace SPH[m
+[32m+[m
+[32m+[m[32m#endif // CASTING_INFLOW_SPEED_H[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/extra_src/riser_check.cpp b/project/project/extra_src/riser_check.cpp[m
+[1mnew file mode 100644[m
+[1mindex 00000000..801e93ad[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/extra_src/riser_check.cpp[m
+[36m@@ -0,0 +1,24 @@[m
+[32m+[m[32m#include "sphinxsys.h"[m
+[32m+[m[32m#include "riser_check.h"[m
+[32m+[m
+[32m+[m[32mnamespace SPH[m
+[32m+[m[32m{[m
+[32m+[m
+[32m+[m[32m    BaseDynamics<Real>& addRiserCheck([m
+[32m+[m[32m        EntityManager& config_manager, MainMethods& main_methods,[m
+[32m+[m[32m        FluidBody& fluid_body, const json& config)[m
+[32m+[m[32m    {[m
+[32m+[m[32m        const json& riser_config = config.at("riser_check");[m
+[32m+[m[32m        const std::string oriented_box_name =[m
+[32m+[m[32m            riser_config.at("oriented_box").get<std::string>();[m
+[32m+[m
+[32m+[m[32m        OrientedBox& oriented_box = config_manager.getEntity<OrientedBox>(oriented_box_name);[m
+[32m+[m
+[32m+[m[32m        auto& riser_check = fluid_body.addBodyPart<OrientedBoxByCell>(oriented_box);[m
+[32m+[m[32m        auto& riser_fluid_height = main_methods.addReduceDynamics<UpperFrontInAxisDirectionCK>([m
+[32m+[m[32m                riser_check, "RiserFluidHeight",1);[m
+[32m+[m
+[32m+[m[32m        return riser_fluid_height;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    } // namespace SPH[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/extra_src/riser_check.h b/project/project/extra_src/riser_check.h[m
+[1mnew file mode 100644[m
+[1mindex 00000000..51ecdf52[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/extra_src/riser_check.h[m
+[36m@@ -0,0 +1,16 @@[m
+[32m+[m[32m#ifndef RISER_CHECK_H[m
+[32m+[m[32m#define RISER_CHECK_H[m
+[32m+[m
+[32m+[m[32m#include "base_simulation_builder.h"[m
+[32m+[m[32m#include "fluid_dynamics_builder.h"[m
+[32m+[m
+[32m+[m[32mnamespace SPH[m
+[32m+[m[32m{[m
+[32m+[m
+[32m+[m[32m    BaseDynamics<Real>& addRiserCheck([m
+[32m+[m[32m        EntityManager& config_manager, MainMethods& main_methods,[m
+[32m+[m[32m        FluidBody& fluid_body, const json& config);[m
+[32m+[m
+[32m+[m[32m} // namespace SPH[m
+[32m+[m
+[32m+[m[32m#endif // RISER_CHECK_H[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/extra_src/sphinxsim_project.cpp b/project/project/extra_src/sphinxsim_project.cpp[m
+[1mnew file mode 100644[m
+[1mindex 00000000..40433c7a[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/extra_src/sphinxsim_project.cpp[m
+[36m@@ -0,0 +1,82 @@[m
+[32m+[m[32m#include "sphinxsys.h"[m
+[32m+[m[32m#include "sphinxsim_project.h"[m
+[32m+[m[32m#include "riser_check.h"[m
+[32m+[m
+[32m+[m[32m#include <iostream>[m
+[32m+[m[32mnamespace SPH[m
+[32m+[m[32m{[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mbool addExtraMaterial(EntityManager &config_manager, SPHBody &sph_body,[m
+[32m+[m[32m                      const json &config, const std::string &type)[m
+[32m+[m[32m{[m
+[32m+[m[32m    return false;[m
+[32m+[m[32m}[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mvoid addExtraEmitterFeatures([m
+[32m+[m[32m    EntityManager &config_manager, MainMethods &main_methods,[m
+[32m+[m[32m    FluidBody &fluid_body, FluidSolverConfig &fluid_solver_config,[m
+[32m+[m[32m    StagePipeline<SimulationHookPoint> &simulation_pipeline,[m
+[32m+[m[32m    const json &config)[m
+[32m+[m[32m{[m
+[32m+[m[32m    if (config.contains("riser_check"))[m
+[32m+[m[32m    {[m
+[32m+[m[32m        const json &riser_config = config.at("riser_check");[m
+[32m+[m[32m        auto &riser_fluid_height = addRiserCheck(config_manager, main_methods,fluid_body,config);[m
+[32m+[m[32m        auto &scaling_config = config_manager.getEntity<ScalingConfig>("ScalingConfig");[m
+[32m+[m[32m        auto *sv_physical_time = &fluid_body.getSPHSystem().svPhysicalTime();[m
+[32m+[m[32m        auto *sv_riser_lower_triggertime =fluid_body.getSPHSystem().registerSystemVariable<Real>([m
+[32m+[m[32m                "RiserLowerTriggertime", -1.0);[m
+[32m+[m[32m        Real riser_top_height =scaling_config.jsonToReal([m
+[32m+[m[32m                riser_config.at("riser_top_height"),[m
+[32m+[m[32m                "Length");[m
+[32m+[m[32m        Real riser_bottom_height = scaling_config.jsonToReal([m
+[32m+[m[32m                riser_config.at("riser_bottom_height"),[m
+[32m+[m[32m                "Length");[m
+[32m+[m
+[32m+[m[32m        simulation_pipeline.insert_hook([m
+[32m+[m[32m            SimulationHookPoint::AfterUpdateConfiguration,[m
+[32m+[m[32m            [&riser_fluid_height,[m
+[32m+[m[32m             &fluid_solver_config,[m
+[32m+[m[32m             sv_riser_lower_triggertime,[m
+[32m+[m[32m             sv_physical_time,[m
+[32m+[m[32m             riser_bottom_height,[m
+[32m+[m[32m             riser_top_height]()[m
+[32m+[m[32m            {[m
+[32m+[m[32m                Real current_height = riser_fluid_height.exec();[m
+[32m+[m[41m               [m
+[32m+[m[32m                if (sv_riser_lower_triggertime->getValue() < 0.0 &&[m
+[32m+[m[32m                    current_height >= riser_bottom_height)[m
+[32m+[m[32m                {[m
+[32m+[m[32m                    sv_riser_lower_triggertime->setValue([m
+[32m+[m[32m                        sv_physical_time->getValue());[m
+[32m+[m[32m                }[m
+[32m+[m[32m                if (fluid_solver_config.emitter_on_ &&[m
+[32m+[m[32m                    current_height >= riser_top_height)[m
+[32m+[m[32m                {[m
+[32m+[m[32m                    fluid_solver_config.emitter_on_ = false;[m
+[32m+[m
+[32m+[m[32m                    std::cerr << "Emitter stopped." << std::endl;[m
+[32m+[m[32m                }[m
+[32m+[m[32m            });[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mvoid addExtraInflowSpeed([m
+[32m+[m[32m    EntityManager &config_manager, MainMethods &main_methods, FluidBody &fluid_body,[m
+[32m+[m[32m    OrientedBoxByParticle &emitter, ParticleDynamicsGroup &inflow_condition,const json &config)[m
+[32m+[m[32m{[m
+[32m+[m[32m    const json &speed_config = config.at("casting_speed");[m
+[32m+[m[32m    auto &scaling_config = config_manager.getEntity<ScalingConfig>("ScalingConfig");[m
+[32m+[m[32m    Real normal_speed = scaling_config.jsonToReal(speed_config.at("normal_speed"), "Speed");[m
+[32m+[m[32m    Real triggered_speed = scaling_config.jsonToReal(speed_config.at("triggered_speed"), "Speed");[m
+[32m+[m[32m    Real deceleration_seconds =speed_config.value("deceleration_time", Real(0.5));[m
+[32m+[m[32m    Real deceleration_time = scaling_config.jsonToReal(json(deceleration_seconds), "Time");[m
+[32m+[m
+[32m+[m[32m    auto *sv_riser_lower_triggertime = fluid_body.getSPHSystem()[m
+[32m+[m[32m                                           .registerSystemVariable<Real>("RiserLowerTriggertime", -1.0);[m
+[32m+[m[32m    inflow_condition.add(&main_methods.template addStateDynamics<[m
+[32m+[m[32m                          fluid_dynamics::EmitterInflowConditionCK, CastingInflowSpeed>([m
+[32m+[m[32m        emitter, normal_speed, triggered_speed, deceleration_time, sv_riser_lower_triggertime->Data()));[m
+[32m+[m[32m}[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32m} // namespace SPH[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/extra_src/sphinxsim_project.h b/project/project/extra_src/sphinxsim_project.h[m
+[1mnew file mode 100644[m
+[1mindex 00000000..218793da[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/extra_src/sphinxsim_project.h[m
+[36m@@ -0,0 +1,45 @@[m
+[32m+[m[32m/**[m
+[32m+[m[32m * @file    sphinxsim_project.h[m
+[32m+[m[32m * @brief   tbd.[m
+[32m+[m[32m * @author  Xiangyu Hu & Han Yang[m
+[32m+[m[32m */[m
+[32m+[m
+[32m+[m[32m#ifndef SPHINXSIM_PROJECT_H[m
+[32m+[m[32m#define SPHINXSIM_PROJECT_H[m
+[32m+[m
+[32m+[m[32m#include "base_simulation_builder.h"[m
+[32m+[m[32m#include "simulation_scaling.h"[m
+[32m+[m[32m#include "casting_inflow_speed.h"[m
+[32m+[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mnamespace SPH[m
+[32m+[m[32m{[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mclass EntityManager;[m
+[32m+[m
+[32m+[m[32mbool addExtraMaterial([m
+[32m+[m[32m    EntityManager &config_manager, SPHBody &sph_body,[m
+[32m+[m[32m    const json &config, const std::string &type);[m
+[32m+[m
+[32m+[m[32mtemplate <class InnerRelationType>[m
+[32m+[m[32mbool addExtraSolidRelaxation1stHalf([m
+[32m+[m[32m    EntityManager &config_manager, ParticleDynamicsGroup &solid_relaxation_1st_half,[m
+[32m+[m[32m    MainMethods &main_methods, InnerRelationType &inner_relation);[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mclass FluidBody;[m
+[32m+[m[32mstruct FluidSolverConfig;[m
+[32m+[m
+[32m+[m[32mvoid addExtraEmitterFeatures([m
+[32m+[m[32m    EntityManager &config_manager, MainMethods &main_methods,[m
+[32m+[m[32m    FluidBody &fluid_body, FluidSolverConfig &fluid_solver_config,[m
+[32m+[m[32m    StagePipeline<SimulationHookPoint> &simulation_pipeline,const json &config);[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mclass OrientedBoxByParticle;[m
+[32m+[m[32mvoid addExtraInflowSpeed([m
+[32m+[m[32m    EntityManager &config_manager, MainMethods &main_methods,[m
+[32m+[m[32m    FluidBody &fluid_body,OrientedBoxByParticle &emitter,[m
+[32m+[m[32m    ParticleDynamicsGroup &inflow_condition,[m
+[32m+[m[32m    const json &config);[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32m} // namespace SPH[m
+[32m+[m[32m#endif // SPHINXSIM_PROJECT_H[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/extra_src/sphinxsim_project.hpp b/project/project/extra_src/sphinxsim_project.hpp[m
+[1mnew file mode 100644[m
+[1mindex 00000000..e94923ba[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/extra_src/sphinxsim_project.hpp[m
+[36m@@ -0,0 +1,20 @@[m
+[32m+[m[32m#include "sphinxsim_project.h"[m
+[32m+[m
+[32m+[m[32m#include "base_body.hpp"[m
+[32m+[m[32m#include "sphinxsys_entity.h"[m
+[32m+[m[32m#include "structure_surface_motion.h"[m
+[32m+[m
+[32m+[m[32mnamespace SPH[m
+[32m+[m[32m{[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32musing namespace solid_dynamics;[m[41m    [m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32mtemplate <class InnerRelationType>[m
+[32m+[m[32mbool addExtraSolidRelaxation1stHalf([m
+[32m+[m[32m    EntityManager &config_manager, ParticleDynamicsGroup &solid_relaxation_1st_half,[m
+[32m+[m[32m    MainMethods &main_methods, InnerRelationType &inner_relation)[m
+[32m+[m[32m{[m
+[32m+[m[32m    return false;[m
+[32m+[m[32m}[m
+[32m+[m[32m//=================================================================================================//[m
+[32m+[m[32m} // namespace SPH[m
+\ No newline at end of file[m
+[1mdiff --git a/project/project/simulation_2d/filling_tank.json b/project/project/simulation_2d/filling_tank.json[m
+[1mnew file mode 100644[m
+[1mindex 00000000..316b2887[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/simulation_2d/filling_tank.json[m
+[36m@@ -0,0 +1,139 @@[m
+[32m+[m[32m{[m
+[32m+[m[32m  "characteristic_dimensions": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 0.1,[m
+[32m+[m[32m      "name": "Length",[m
+[32m+[m[32m      "hint": "geometries.system_domain.upper_bound"[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 9.81,[m
+[32m+[m[32m      "name": "Gravity",[m
+[32m+[m[32m      "hint": "gravity"[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 2357.0,[m
+[32m+[m[32m      "name": "Density",[m
+[32m+[m[32m      "hint": "fluid_bodies[name=WaterBody].material.density"[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "simulation_type": "fluid_dynamics",[m
+[32m+[m
+[32m+[m[32m  "geometries": {[m
+[32m+[m[32m    "system_domain": {[m
+[32m+[m[32m      "lower_bound": [ -0.270, -0.170 ],[m
+[32m+[m[32m      "upper_bound": [ 0.270, 0.430 ][m
+[32m+[m[32m    },[m
+[32m+[m[32m    "global_resolution": {[m
+[32m+[m[32m      "particle_spacing": 0.005[m
+[32m+[m[32m    },[m
+[32m+[m[32m    "shapes": [[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "WaterBody",[m
+[32m+[m[32m        "type": "bounding_box",[m
+[32m+[m[32m        "lower_bound": [ -0.1851, 0.3801 ],[m
+[32m+[m[32m        "upper_bound": [ -0.1507, 0.4050 ][m
+[32m+[m[32m      },[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "WallBoundary",[m
+[32m+[m[32m        "type": "multipolygon",[m
+[32m+[m[32m        "polygons": [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "operation": "union",[m
+[32m+[m[32m            "type": "data_file",[m
+[32m+[m[32m            "file_name": "pointset_m_1.dat"[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "operation": "union",[m
+[32m+[m[32m            "type": "data_file",[m
+[32m+[m[32m            "file_name": "pointset_m_2.dat"[m
+[32m+[m[32m          }[m
+[32m+[m[32m        ][m
+[32m+[m[32m      }[m
+[32m+[m[32m    ],[m
+[32m+[m[32m    "oriented_boxes": [[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "Emitter",[m
+[32m+[m[32m        "type": "region",[m
+[32m+[m[32m        "half_size": [ 0.01245, 0.0172 ],[m
+[32m+[m[32m        "transform": {[m
+[32m+[m[32m          "translation": [ -0.1679, 0.39255 ],[m
+[32m+[m[32m          "rotation_angle": -1.57079632679[m
+[32m+[m[32m        }[m
+[32m+[m[32m      },[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "RiserCheck",[m
+[32m+[m[32m        "type": "region",[m
+[32m+[m[32m        "half_size": [ 0.022, 0.04 ],[m
+[32m+[m[32m        "transform": {[m
+[32m+[m[32m          "translation": [ 0.0, 0.31 ],[m
+[32m+[m[32m          "rotation_angle": 0.0[m
+[32m+[m[32m        }[m
+[32m+[m[32m      }[m
+[32m+[m[32m    ][m
+[32m+[m[32m  },[m
+[32m+[m[32m  "particle_generation": {[m
+[32m+[m[32m    "build_and_run": true,[m
+[32m+[m[32m    "settings": {[m
+[32m+[m[32m      "bodies": [[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "name": "WaterBody"[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "name": "WallBoundary",[m
+[32m+[m[32m          "solid_body": {}[m
+[32m+[m[32m        }[m
+[32m+[m[32m      ],[m
+[32m+[m[32m      "relaxation_parameters": {[m
+[32m+[m[32m        "total_iterations": 1000[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  },[m
+[32m+[m[32m  "fluid_bodies": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "name": "WaterBody",[m
+[32m+[m[32m      "material": {[m
+[32m+[m[32m        "type": "weakly_compressible_fluid",[m
+[32m+[m[32m        "density": 2357.0,[m
+[32m+[m[32m        "viscosity": 0.00124[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "particle_reserve_factor": 500.0[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "solid_bodies": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "name": "WallBoundary",[m
+[32m+[m[32m      "material": {[m
+[32m+[m[32m        "type": "rigid_body"[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "fluid_boundary_conditions": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "body_name": "WaterBody",[m
+[32m+[m[32m      "oriented_box": "Emitter",[m
+[32m+[m[32m      "type": "emitter",[m
+[32m+[m[32m      "inflow_speed": 0.4,[m
+[32m+[m[32m      "on_schedule": {[m
+[32m+[m[32m        "switch_on_time": 1.0,[m
+[32m+[m[32m        "duration": 8[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "riser_check": {[m
+[32m+[m[32m        "oriented_box": "RiserCheck",[m
+[32m+[m[32m        "riser_top_height": 0.3500,[m
+[32m+[m[32m        "riser_bottom_height": 0.25[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "gravity": [ 0.0, -9.81 ],[m
+[32m+[m[32m  "solver_parameters": {[m
+[32m+[m[32m    "end_time": 8,[m
+[32m+[m[32m    "output_interval": 0.1,[m
+[32m+[m[32m    "screen_interval": 100,[m
+[32m+[m[32m    "fluid_dynamics": {[m
+[32m+[m[32m      "acoustic_cfl": 0.6,[m
+[32m+[m[32m      "advection_cfl": 0.25,[m
+[32m+[m[32m      "surface_type": "free_surface",[m
+[32m+[m[32m      "particle_sort_frequency": 100[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[1mdiff --git a/project/project/simulation_2d/filling_tank_speed.json b/project/project/simulation_2d/filling_tank_speed.json[m
+[1mnew file mode 100644[m
+[1mindex 00000000..d38c8d68[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/simulation_2d/filling_tank_speed.json[m
+[36m@@ -0,0 +1,143 @@[m
+[32m+[m[32m{[m
+[32m+[m[32m  "characteristic_dimensions": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 0.1,[m
+[32m+[m[32m      "name": "Length",[m
+[32m+[m[32m      "hint": "geometries.system_domain.upper_bound"[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 9.81,[m
+[32m+[m[32m      "name": "Gravity",[m
+[32m+[m[32m      "hint": "gravity"[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 2357.0,[m
+[32m+[m[32m      "name": "Density",[m
+[32m+[m[32m      "hint": "fluid_bodies[name=WaterBody].material.density"[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "simulation_type": "fluid_dynamics",[m
+[32m+[m
+[32m+[m[32m  "geometries": {[m
+[32m+[m[32m    "system_domain": {[m
+[32m+[m[32m      "lower_bound": [-0.270, -0.170],[m
+[32m+[m[32m      "upper_bound": [0.270, 0.430][m
+[32m+[m[32m    },[m
+[32m+[m[32m    "global_resolution": {[m
+[32m+[m[32m      "particle_spacing": 0.005[m
+[32m+[m[32m    },[m
+[32m+[m[32m    "shapes": [[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "WaterBody",[m
+[32m+[m[32m        "type": "bounding_box",[m
+[32m+[m[32m        "lower_bound": [-0.1851, 0.3801],[m
+[32m+[m[32m        "upper_bound": [-0.1507, 0.4050][m
+[32m+[m[32m      },[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "WallBoundary",[m
+[32m+[m[32m        "type": "multipolygon",[m
+[32m+[m[32m        "polygons": [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "operation": "union",[m
+[32m+[m[32m            "type": "data_file",[m
+[32m+[m[32m            "file_name": "pointset_m_1.dat"[m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            "operation": "union",[m
+[32m+[m[32m            "type": "data_file",[m
+[32m+[m[32m            "file_name": "pointset_m_2.dat"[m
+[32m+[m[32m          }[m
+[32m+[m[32m        ][m
+[32m+[m[32m      }[m
+[32m+[m[32m    ],[m
+[32m+[m[32m    "oriented_boxes": [[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "Emitter",[m
+[32m+[m[32m        "type": "region",[m
+[32m+[m[32m        "half_size": [0.01245, 0.0172],[m
+[32m+[m[32m        "transform": {[m
+[32m+[m[32m          "translation": [-0.1679, 0.39255],[m
+[32m+[m[32m          "rotation_angle": -1.57079632679[m
+[32m+[m[32m        }[m
+[32m+[m[32m      },[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "RiserCheck",[m
+[32m+[m[32m        "type": "region",[m
+[32m+[m[32m        "half_size": [0.022, 0.056],[m
+[32m+[m[32m        "transform": {[m
+[32m+[m[32m          "translation": [0.0, 0.3],[m
+[32m+[m[32m          "rotation_angle": 0.0[m
+[32m+[m[32m        }[m
+[32m+[m[32m      }[m
+[32m+[m[32m    ][m
+[32m+[m[32m  },[m
+[32m+[m[32m  "particle_generation": {[m
+[32m+[m[32m    "build_and_run": true,[m
+[32m+[m[32m    "settings": {[m
+[32m+[m[32m      "bodies": [[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "name": "WaterBody"[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "name": "WallBoundary",[m
+[32m+[m[32m          "solid_body": {}[m
+[32m+[m[32m        }[m
+[32m+[m[32m      ],[m
+[32m+[m[32m      "relaxation_parameters": {[m
+[32m+[m[32m        "total_iterations": 1000[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  },[m
+[32m+[m[32m  "fluid_bodies": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "name": "WaterBody",[m
+[32m+[m[32m      "material": {[m
+[32m+[m[32m        "type": "weakly_compressible_fluid",[m
+[32m+[m[32m        "density": 2357.0,[m
+[32m+[m[32m        "viscosity": 0.00124[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "particle_reserve_factor": 500.0[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "solid_bodies": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "name": "WallBoundary",[m
+[32m+[m[32m      "material": {[m
+[32m+[m[32m        "type": "rigid_body"[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "fluid_boundary_conditions": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "body_name": "WaterBody",[m
+[32m+[m[32m      "oriented_box": "Emitter",[m
+[32m+[m[32m      "type": "emitter",[m
+[32m+[m[32m      "casting_speed": {[m
+[32m+[m[32m        "normal_speed": 0.4,[m
+[32m+[m[32m        "triggered_speed": 0.1[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "on_schedule": {[m
+[32m+[m[32m        "switch_on_time": 1.0,[m
+[32m+[m[32m        "duration": 8.0[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "riser_check": {[m
+[32m+[m[32m        "oriented_box": "RiserCheck",[m
+[32m+[m[32m        "riser_top_height": 0.3500,[m
+[32m+[m[32m        "riser_bottom_height": 0.25[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "gravity": [0.0, -9.81],[m
+[32m+[m[32m  "solver_parameters": {[m
+[32m+[m[32m    "end_time": 10.0,[m
+[32m+[m[32m    "output_interval": 0.1,[m
+[32m+[m[32m    "screen_interval": 100,[m
+[32m+[m[32m    "fluid_dynamics": {[m
+[32m+[m[32m      "acoustic_cfl": 0.6,[m
+[32m+[m[32m      "advection_cfl": 0.25,[m
+[32m+[m[32m      "surface_type": "free_surface",[m
+[32m+[m[32m      "particle_sort_frequency": 100,[m
+[32m+[m[32m      "kernel_correction": "none"[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[1mdiff --git a/project/project/simulation_2d/pointset_m_1.dat b/project/project/simulation_2d/pointset_m_1.dat[m
+[1mnew file mode 100644[m
+[1mindex 00000000..9b766927[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/simulation_2d/pointset_m_1.dat[m
+[36m@@ -0,0 +1,2000 @@[m
+[32m+[m[32m-0.1811243928 0.0699999563[m
+[32m+[m[32m-0.1811054772 0.0685824213[m
+[32m+[m[32m-0.1810487437 0.0671658958[m
+[32m+[m[32m-0.1809542329 0.0657513884[m
+[32m+[m[32m-0.1808220120 0.0643399066[m
+[32m+[m[32m-0.1806521752 0.0629324555[m
+[32m+[m[32m-0.1804448434 0.0615300373[m
+[32m+[m[32m-0.1802001643 0.0601336508[m
+[32m+[m[32m-0.1799183120 0.0587442903[m
+[32m+[m[32m-0.1795994874 0.0573629453[m
+[32m+[m[32m-0.1792439174 0.0559905994[m
+[32m+[m[32m-0.1788518554 0.0546282299[m
+[32m+[m[32m-0.1784235803 0.0532768070[m
+[32m+[m[32m-0.1779593974 0.0519372932[m
+[32m+[m[32m-0.1774596370 0.0506106422[m
+[32m+[m[32m-0.1769246552 0.0492977988[m
+[32m+[m[32m-0.1763548328 0.0479996980[m
+[32m+[m[32m-0.1757505758 0.0467172641[m
+[32m+[m[32m-0.1751123142 0.0454514105[m
+[32m+[m[32m-0.1744405028 0.0442030385[m
+[32m+[m[32m-0.1737356199 0.0429730371[m
+[32m+[m[32m-0.1729981675 0.0417622823[m
+[32m+[m[32m-0.1722286707 0.0405716363[m
+[32m+[m[32m-0.1714276775 0.0394019470[m
+[32m+[m[32m-0.1705957583 0.0382540473[m
+[32m+[m[32m-0.1697335056 0.0371287547[m
+[32m+[m[32m-0.1688415333 0.0360268705[m
+[32m+[m[32m-0.1679204768 0.0349491794[m
+[32m+[m[32m-0.1669709918 0.0338964489[m
+[32m+[m[32m-0.1659937546 0.0328694286[m
+[32m+[m[32m-0.1649894610 0.0318688499[m
+[32m+[m[32m-0.1639588263 0.0308954254[m
+[32m+[m[32m-0.1629025843 0.0299498482[m
+[32m+[m[32m-0.1618214873 0.0290327918[m
+[32m+[m[32m-0.1607163052 0.0281449091[m
+[32m+[m[32m-0.1595878249 0.0272868325[m
+[32m+[m[32m-0.1584368501 0.0264591730[m
+[32m+[m[32m-0.1572642004 0.0256625200[m
+[32m+[m[32m-0.1560707109 0.0248974409[m
+[32m+[m[32m-0.1548572316 0.0241644804[m
+[32m+[m[32m-0.1536246265 0.0234641605[m
+[32m+[m[32m-0.1523737734 0.0227969800[m
+[32m+[m[32m-0.1511055631 0.0221634140[m
+[32m+[m[32m-0.1498208988 0.0215639135[m
+[32m+[m[32m-0.1485206952 0.0209989057[m
+[32m+[m[32m-0.1472058783 0.0204687927[m
+[32m+[m[32m-0.1458773843 0.0199739522[m
+[32m+[m[32m-0.1445361595 0.0195147365[m
+[32m+[m[32m-0.1431831587 0.0190914726[m
+[32m+[m[32m-0.1418193457 0.0187044620[m
+[32m+[m[32m-0.1404456915 0.0183539802[m
+[32m+[m[32m-0.1390631745 0.0180402768[m
+[32m+[m[32m-0.1376727790 0.0177635753[m
+[32m+[m[32m-0.1362754953 0.0175240727[m
+[32m+[m[32m-0.1348723184 0.0173219395[m
+[32m+[m[32m-0.1334642476 0.0171573196[m
+[32m+[m[32m-0.1320522855 0.0170303304[m
+[32m+[m[32m-0.1306374376 0.0169410622[m
+[32m+[m[32m-0.1292207116 0.0168895786[m
+[32m+[m[32m-0.1278031150 0.0168755515[m
+[32m+[m[32m-0.1263854117 0.0168755515[m
+[32m+[m[32m-0.1249677085 0.0168755515[m
+[32m+[m[32m-0.1235500052 0.0168755515[m
+[32m+[m[32m-0.1221323020 0.0168755515[m
+[32m+[m[32m-0.1207145987 0.0168755515[m
+[32m+[m[32m-0.1192968955 0.0168755515[m
+[32m+[m[32m-0.1178791922 0.0168755515[m
+[32m+[m[32m-0.1164614889 0.0168755515[m
+[32m+[m[32m-0.1150437857 0.0168755515[m
+[32m+[m[32m-0.1136260824 0.0168755515[m
+[32m+[m[32m-0.1122083792 0.0168755515[m
+[32m+[m[32m-0.1107906759 0.0168755515[m
+[32m+[m[32m-0.1093729727 0.0168755515[m
+[32m+[m[32m-0.1079552694 0.0168755515[m
+[32m+[m[32m-0.1065375661 0.0168755515[m
+[32m+[m[32m-0.1051198629 0.0168755515[m
+[32m+[m[32m-0.1037021596 0.0168755515[m
+[32m+[m[32m-0.1022844564 0.0168755515[m
+[32m+[m[32m-0.1008667531 0.0168755515[m
+[32m+[m[32m-0.0999999880 0.0163246133[m
+[32m+[m[32m-0.0999999880 0.0149069101[m
+[32m+[m[32m-0.0999999880 0.0134892068[m
+[32m+[m[32m-0.0999999880 0.0120715036[m
+[32m+[m[32m-0.0999999880 0.0106538003[m
+[32m+[m[32m-0.0999999880 0.0092360971[m
+[32m+[m[32m-0.0999999880 0.0078183938[m
+[32m+[m[32m-0.0999999880 0.0064006905[m
+[32m+[m[32m-0.0999999880 0.0049829873[m
+[32m+[m[32m-0.0999999880 0.0035652840[m
+[32m+[m[32m-0.0999999880 0.0021475808[m
+[32m+[m[32m-0.0999999880 0.0007298775[m
+[32m+[m[32m-0.0993122060 -0.0000000437[m
+[32m+[m[32m-0.0978945028 -0.0000000437[m
+[32m+[m[32m-0.0964767995 -0.0000000437[m
+[32m+[m[32m-0.0950590963 -0.0000000437[m
+[32m+[m[32m-0.0936413930 -0.0000000437[m
+[32m+[m[32m-0.0922236898 -0.0000000437[m
+[32m+[m[32m-0.0908059865 -0.0000000437[m
+[32m+[m[32m-0.0893882832 -0.0000000437[m
+[32m+[m[32m-0.0879705800 -0.0000000437[m
+[32m+[m[32m-0.0865528767 -0.0000000437[m
+[32m+[m[32m-0.0851351735 -0.0000000437[m
+[32m+[m[32m-0.0837174702 -0.0000000437[m
+[32m+[m[32m-0.0822997670 -0.0000000437[m
+[32m+[m[32m-0.0808820637 -0.0000000437[m
+[32m+[m[32m-0.0794643604 -0.0000000437[m
+[32m+[m[32m-0.0780466572 -0.0000000437[m
+[32m+[m[32m-0.0766289539 -0.0000000437[m
+[32m+[m[32m-0.0752112507 -0.0000000437[m
+[32m+[m[32m-0.0737935474 -0.0000000437[m
+[32m+[m[32m-0.0723758442 -0.0000000437[m
+[32m+[m[32m-0.0709581409 -0.0000000437[m
+[32m+[m[32m-0.0695404377 -0.0000000437[m
+[32m+[m[32m-0.0681227344 -0.0000000437[m
+[32m+[m[32m-0.0667050311 -0.0000000437[m
+[32m+[m[32m-0.0652873279 -0.0000000437[m
+[32m+[m[32m-0.0638696246 -0.0000000437[m
+[32m+[m[32m-0.0624519214 -0.0000000437[m
+[32m+[m[32m-0.0610342181 -0.0000000437[m
+[32m+[m[32m-0.0596165149 -0.0000000437[m
+[32m+[m[32m-0.0581988116 -0.0000000437[m
+[32m+[m[32m-0.0567811083 -0.0000000437[m
+[32m+[m[32m-0.0553634051 -0.0000000437[m
+[32m+[m[32m-0.0539457018 -0.0000000437[m
+[32m+[m[32m-0.0525279986 -0.0000000437[m
+[32m+[m[32m-0.0511102953 -0.0000000437[m
+[32m+[m[32m-0.0496925921 -0.0000000437[m
+[32m+[m[32m-0.0482748888 -0.0000000437[m
+[32m+[m[32m-0.0468571856 -0.0000000437[m
+[32m+[m[32m-0.0454394823 -0.0000000437[m
+[32m+[m[32m-0.0440217790 -0.0000000437[m
+[32m+[m[32m-0.0426040758 -0.0000000437[m
+[32m+[m[32m-0.0411863725 -0.0000000437[m
+[32m+[m[32m-0.0397686693 -0.0000000437[m
+[32m+[m[32m-0.0383509660 -0.0000000437[m
+[32m+[m[32m-0.0369332628 -0.0000000437[m
+[32m+[m[32m-0.0355155595 -0.0000000437[m
+[32m+[m[32m-0.0340978562 -0.0000000437[m
+[32m+[m[32m-0.0326801530 -0.0000000437[m
+[32m+[m[32m-0.0312624497 -0.0000000437[m
+[32m+[m[32m-0.0298447465 -0.0000000437[m
+[32m+[m[32m-0.0284270432 -0.0000000437[m
+[32m+[m[32m-0.0270093400 -0.0000000437[m
+[32m+[m[32m-0.0255916367 -0.0000000437[m
+[32m+[m[32m-0.0241739334 -0.0000000437[m
+[32m+[m[32m-0.0227562302 -0.0000000437[m
+[32m+[m[32m-0.0213385269 -0.0000000437[m
+[32m+[m[32m-0.0199208237 -0.0000000437[m
+[32m+[m[32m-0.0185031204 -0.0000000437[m
+[32m+[m[32m-0.0170854172 -0.0000000437[m
+[32m+[m[32m-0.0156677139 -0.0000000437[m
+[32m+[m[32m-0.0142500107 -0.0000000437[m
+[32m+[m[32m-0.0128323074 -0.0000000437[m
+[32m+[m[32m-0.0114146041 -0.0000000437[m
+[32m+[m[32m-0.0099969009 -0.0000000437[m
+[32m+[m[32m-0.0085791976 -0.0000000437[m
+[32m+[m[32m-0.0071614944 -0.0000000437[m
+[32m+[m[32m-0.0057437911 -0.0000000437[m
+[32m+[m[32m-0.0043260879 -0.0000000437[m
+[32m+[m[32m-0.0029083846 -0.0000000437[m
+[32m+[m[32m-0.0014906813 -0.0000000437[m
+[32m+[m[32m-0.0000729781 -0.0000000437[m
+[32m+[m[32m0.0013447252 -0.0000000437[m
+[32m+[m[32m0.0027624284 -0.0000000437[m
+[32m+[m[32m0.0041801317 -0.0000000437[m
+[32m+[m[32m0.0055978349 -0.0000000437[m
+[32m+[m[32m0.0070155382 -0.0000000437[m
+[32m+[m[32m0.0084332414 -0.0000000437[m
+[32m+[m[32m0.0098509447 -0.0000000437[m
+[32m+[m[32m0.0112686480 -0.0000000437[m
+[32m+[m[32m0.0126863512 -0.0000000437[m
+[32m+[m[32m0.0141040545 -0.0000000437[m
+[32m+[m[32m0.0155217577 -0.0000000437[m
+[32m+[m[32m0.0169394610 -0.0000000437[m
+[32m+[m[32m0.0183571642 -0.0000000437[m
+[32m+[m[32m0.0197748675 -0.0000000437[m
+[32m+[m[32m0.0211925708 -0.0000000437[m
+[32m+[m[32m0.0226102740 -0.0000000437[m
+[32m+[m[32m0.0240279773 -0.0000000437[m
+[32m+[m[32m0.0254456805 -0.0000000437[m
+[32m+[m[32m0.0268633838 -0.0000000437[m
+[32m+[m[32m0.0282810870 -0.0000000437[m
+[32m+[m[32m0.0296987903 -0.0000000437[m
+[32m+[m[32m0.0311164935 -0.0000000437[m
+[32m+[m[32m0.0325341968 -0.0000000437[m
+[32m+[m[32m0.0339519001 -0.0000000437[m
+[32m+[m[32m0.0353696033 -0.0000000437[m
+[32m+[m[32m0.0367873066 -0.0000000437[m
+[32m+[m[32m0.0382050098 -0.0000000437[m
+[32m+[m[32m0.0396227131 -0.0000000437[m
+[32m+[m[32m0.0410404163 -0.0000000437[m
+[32m+[m[32m0.0424581196 -0.0000000437[m
+[32m+[m[32m0.0438758229 -0.0000000437[m
+[32m+[m[32m0.0452935261 -0.0000000437[m
+[32m+[m[32m0.0467112294 -0.0000000437[m
+[32m+[m[32m0.0481289326 -0.0000000437[m
+[32m+[m[32m0.0495466359 -0.0000000437[m
+[32m+[m[32m0.0509643391 -0.0000000437[m
+[32m+[m[32m0.0523820424 -0.0000000437[m
+[32m+[m[32m0.0537997457 -0.0000000437[m
+[32m+[m[32m0.0552174489 -0.0000000437[m
+[32m+[m[32m0.0566351522 -0.0000000437[m
+[32m+[m[32m0.0580528554 -0.0000000437[m
+[32m+[m[32m0.0594705587 -0.0000000437[m
+[32m+[m[32m0.0608882619 -0.0000000437[m
+[32m+[m[32m0.0623059652 -0.0000000437[m
+[32m+[m[32m0.0637236684 -0.0000000437[m
+[32m+[m[32m0.0651413717 -0.0000000437[m
+[32m+[m[32m0.0665590750 -0.0000000437[m
+[32m+[m[32m0.0679767782 -0.0000000437[m
+[32m+[m[32m0.0693944815 -0.0000000437[m
+[32m+[m[32m0.0708121847 -0.0000000437[m
+[32m+[m[32m0.0722298880 -0.0000000437[m
+[32m+[m[32m0.0736475912 -0.0000000437[m
+[32m+[m[32m0.0750652945 -0.0000000437[m
+[32m+[m[32m0.0764829978 -0.0000000437[m
+[32m+[m[32m0.0779007010 -0.0000000437[m
+[32m+[m[32m0.0793184043 -0.0000000437[m
+[32m+[m[32m0.0807361075 -0.0000000437[m
+[32m+[m[32m0.0821538108 -0.0000000437[m
+[32m+[m[32m0.0835715140 -0.0000000437[m
+[32m+[m[32m0.0849892173 -0.0000000437[m
+[32m+[m[32m0.0864069205 -0.0000000437[m
+[32m+[m[32m0.0878246238 -0.0000000437[m
+[32m+[m[32m0.0892423271 -0.0000000437[m
+[32m+[m[32m0.0906600303 -0.0000000437[m
+[32m+[m[32m0.0920777336 -0.0000000437[m
+[32m+[m[32m0.0934954368 -0.0000000437[m
+[32m+[m[32m0.0949131401 -0.0000000437[m
+[32m+[m[32m0.0963308433 -0.0000000437[m
+[32m+[m[32m0.0977485466 -0.0000000437[m
+[32m+[m[32m0.0991662499 -0.0000000437[m
+[32m+[m[32m0.1000000120 0.0005838974[m
+[32m+[m[32m0.1000000120 0.0020016007[m
+[32m+[m[32m0.1000000120 0.0034193039[m
+[32m+[m[32m0.1000000120 0.0048370072[m
+[32m+[m[32m0.1000000120 0.0062547105[m
+[32m+[m[32m0.1000000120 0.0076724137[m
+[32m+[m[32m0.1000000120 0.0090901170[m
+[32m+[m[32m0.1000000120 0.0105078202[m
+[32m+[m[32m0.1000000120 0.0119255235[m
+[32m+[m[32m0.1000000120 0.0133432267[m
+[32m+[m[32m0.1000000120 0.0147609300[m
+[32m+[m[32m0.1000000120 0.0161786332[m
+[32m+[m[32m0.1000000120 0.0175963365[m
+[32m+[m[32m0.1000000120 0.0190140398[m
+[32m+[m[32m0.1000000120 0.0204317430[m
+[32m+[m[32m0.1000000120 0.0218494463[m
+[32m+[m[32m0.1000000120 0.0232671495[m
+[32m+[m[32m0.1000000120 0.0246848528[m
+[32m+[m[32m0.1000000120 0.0261025560[m
+[32m+[m[32m0.1000000120 0.0275202593[m
+[32m+[m[32m0.1000000120 0.0289379626[m
+[32m+[m[32m0.1000000120 0.0303556658[m
+[32m+[m[32m0.1000000120 0.0317733691[m
+[32m+[m[32m0.1000000120 0.0331910723[m
+[32m+[m[32m0.1000000120 0.0346087756[m
+[32m+[m[32m0.1000000120 0.0360264788[m
+[32m+[m[32m0.1000000120 0.0374441821[m
+[32m+[m[32m0.1000000120 0.0388618853[m
+[32m+[m[32m0.1000000120 0.0402795886[m
+[32m+[m[32m0.1000000120 0.0416972919[m
+[32m+[m[32m0.1000000120 0.0431149951[m
+[32m+[m[32m0.1000000120 0.0445326984[m
+[32m+[m[32m0.1000000120 0.0459504016[m
+[32m+[m[32m0.1000000120 0.0473681049[m
+[32m+[m[32m0.1000000120 0.0487858081[m
+[32m+[m[32m0.1000000120 0.0502035114[m
+[32m+[m[32m0.1000000120 0.0516212147[m
+[32m+[m[32m0.1000000120 0.0530389179[m
+[32m+[m[32m0.1000000120 0.0544566212[m
+[32m+[m[32m0.1000000120 0.0558743244[m
+[32m+[m[32m0.1000000120 0.0572920277[m
+[32m+[m[32m0.1000000120 0.0587097309[m
+[32m+[m[32m0.1000000120 0.0601274342[m
+[32m+[m[32m0.1000000120 0.0615451374[m
+[32m+[m[32m0.1000000120 0.0629628407[m
+[32m+[m[32m0.1000000120 0.0643805440[m
+[32m+[m[32m0.1000000120 0.0657982472[m
+[32m+[m[32m0.1000000120 0.0672159505[m
+[32m+[m[32m0.1000000120 0.0686336537[m
+[32m+[m[32m0.1000000120 0.0700513570[m
+[32m+[m[32m0.1000000120 0.0714690602[m
+[32m+[m[32m0.1000000120 0.0728867635[m
+[32m+[m[32m0.1000000120 0.0743044668[m
+[32m+[m[32m0.1000000120 0.0757221700[m
+[32m+[m[32m0.1000000120 0.0771398733[m
+[32m+[m[32m0.1000000120 0.0785575765[m
+[32m+[m[32m0.1000000120 0.0799752798[m
+[32m+[m[32m0.1000000120 0.0813929830[m
+[32m+[m[32m0.1000000120 0.0828106863[m
+[32m+[m[32m0.1000000120 0.0842283896[m
+[32m+[m[32m0.1000000120 0.0856460928[m
+[32m+[m[32m0.1000000120 0.0870637961[m
+[32m+[m[32m0.1000000120 0.0884814993[m
+[32m+[m[32m0.1000000120 0.0898992026[m
+[32m+[m[32m0.1000000120 0.0913169058[m
+[32m+[m[32m0.1000000120 0.0927346091[m
+[32m+[m[32m0.1000000120 0.0941523123[m
+[32m+[m[32m0.1000000120 0.0955700156[m
+[32m+[m[32m0.1000000120 0.0969877189[m
+[32m+[m[32m0.1000000120 0.0984054221[m
+[32m+[m[32m0.1000000120 0.0998231254[m
+[32m+[m[32m0.1000000120 0.1012408286[m
+[32m+[m[32m0.1000000120 0.1026585319[m
+[32m+[m[32m0.1000000120 0.1040762351[m
+[32m+[m[32m0.1000000120 0.1054939384[m
+[32m+[m[32m0.1000000120 0.1069116417[m
+[32m+[m[32m0.1000000120 0.1083293449[m
+[32m+[m[32m0.1000000120 0.1097470482[m
+[32m+[m[32m0.1000000120 0.1111647514[m
+[32m+[m[32m0.1000000120 0.1125824547[m
+[32m+[m[32m0.1000000120 0.1140001579[m
+[32m+[m[32m0.1000000120 0.1154178612[m
+[32m+[m[32m0.1000000120 0.1168355644[m
+[32m+[m[32m0.1000000120 0.1182532677[m
+[32m+[m[32m0.1000000120 0.1196709710[m
+[32m+[m[32m0.1000000120 0.1210886742[m
+[32m+[m[32m0.1000000120 0.1225063775[m
+[32m+[m[32m0.1000000120 0.1239240807[m
+[32m+[m[32m0.1000000120 0.1253417840[m
+[32m+[m[32m0.1000000120 0.1267594872[m
+[32m+[m[32m0.1000000120 0.1281771905[m
+[32m+[m[32m0.1000000120 0.1295948938[m
+[32m+[m[32m0.1000000120 0.1310125970[m
+[32m+[m[32m0.1000000120 0.1324303003[m
+[32m+[m[32m0.1000000120 0.1338480035[m
+[32m+[m[32m0.1000000120 0.1352657068[m
+[32m+[m[32m0.1000000120 0.1366834100[m
+[32m+[m[32m0.1000000120 0.1381011133[m
+[32m+[m[32m0.1000000120 0.1395188165[m
+[32m+[m[32m0.1000000120 0.1409365198[m
+[32m+[m[32m0.1000000120 0.1423542231[m
+[32m+[m[32m0.1000000120 0.1437719263[m
+[32m+[m[32m0.1000000120 0.1451896296[m
+[32m+[m[32m0.1000000120 0.1466073328[m
+[32m+[m[32m0.1000000120 0.1480250361[m
+[32m+[m[32m0.1000000120 0.1494427393[m
+[32m+[m[32m0.1000000120 0.1508604426[m
+[32m+[m[32m0.1000000120 0.1522781459[m
+[32m+[m[32m0.1000000120 0.1536958491[m
+[32m+[m[32m0.1000000120 0.1551135524[m
+[32m+[m[32m0.1000000120 0.1565312556[m
+[32m+[m[32m0.1000000120 0.1579489589[m
+[32m+[m[32m0.1000000120 0.1593666621[m
+[32m+[m[32m0.1000000120 0.1607843654[m
+[32m+[m[32m0.1000000120 0.1622020687[m
+[32m+[m[32m0.1000000120 0.1636197719[m
+[32m+[m[32m0.1000000120 0.1650374752[m
+[32m+[m[32m0.1000000120 0.1664551784[m
+[32m+[m[32m0.1000000120 0.1678728817[m
+[32m+[m[32m0.1000000120 0.1692905849[m
+[32m+[m[32m0.1000000120 0.1707082882[m
+[32m+[m[32m0.1000000120 0.1721259914[m
+[32m+[m[32m0.1000000120 0.1735436947[m
+[32m+[m[32m0.1000000120 0.1749613980[m
+[32m+[m[32m0.1000000120 0.1763791012[m
+[32m+[m[32m0.1000000120 0.1777968045[m
+[32m+[m[32m0.1000000120 0.1792145077[m
+[32m+[m[32m0.1000000120 0.1806322110[m
+[32m+[m[32m0.1000000120 0.1820499142[m
+[32m+[m[32m0.1000000120 0.1834676175[m
+[32m+[m[32m0.1000000120 0.1848853208[m
+[32m+[m[32m0.1000000120 0.1863030240[m
+[32m+[m[32m0.1000000120 0.1877207273[m
+[32m+[m[32m0.1000000120 0.1891384305[m
+[32m+[m[32m0.1000000120 0.1905561338[m
+[32m+[m[32m0.1000000120 0.1919738370[m
+[32m+[m[32m0.1000000120 0.1933915403[m
+[32m+[m[32m0.1000000120 0.1948092435[m
+[32m+[m[32m0.1000000120 0.1962269468[m
+[32m+[m[32m0.1000000120 0.1976446501[m
+[32m+[m[32m0.1000000120 0.1990623533[m
+[32m+[m[32m0.0995199116 0.1999999563[m
+[32m+[m[32m0.0981022084 0.1999999563[m
+[32m+[m[32m0.0966845051 0.1999999563[m
+[32m+[m[32m0.0952668019 0.1999999563[m
+[32m+[m[32m0.0938490986 0.1999999563[m
+[32m+[m[32m0.0924313954 0.1999999563[m
+[32m+[m[32m0.0910136921 0.1999999563[m
+[32m+[m[32m0.0895959888 0.1999999563[m
+[32m+[m[32m0.0881782856 0.1999999563[m
+[32m+[m[32m0.0867605823 0.1999999563[m
+[32m+[m[32m0.0853428791 0.1999999563[m
+[32m+[m[32m0.0839251758 0.1999999563[m
+[32m+[m[32m0.0825074726 0.1999999563[m
+[32m+[m[32m0.0810897693 0.1999999563[m
+[32m+[m[32m0.0796720661 0.1999999563[m
+[32m+[m[32m0.0782543628 0.1999999563[m
+[32m+[m[32m0.0768366595 0.1999999563[m
+[32m+[m[32m0.0754189563 0.1999999563[m
+[32m+[m[32m0.0740012530 0.1999999563[m
+[32m+[m[32m0.0725835498 0.1999999563[m
+[32m+[m[32m0.0711658465 0.1999999563[m
+[32m+[m[32m0.0697481433 0.1999999563[m
+[32m+[m[32m0.0683304400 0.1999999563[m
+[32m+[m[32m0.0669127367 0.1999999563[m
+[32m+[m[32m0.0654950335 0.1999999563[m
+[32m+[m[32m0.0640773302 0.1999999563[m
+[32m+[m[32m0.0626596270 0.1999999563[m
+[32m+[m[32m0.0612419237 0.1999999563[m
+[32m+[m[32m0.0598242205 0.1999999563[m
+[32m+[m[32m0.0584065172 0.1999999563[m
+[32m+[m[32m0.0569888140 0.1999999563[m
+[32m+[m[32m0.0555711107 0.1999999563[m
+[32m+[m[32m0.0541534074 0.1999999563[m
+[32m+[m[32m0.0527357042 0.1999999563[m
+[32m+[m[32m0.0513180009 0.1999999563[m
+[32m+[m[32m0.0499002977 0.1999999563[m
+[32m+[m[32m0.0484825944 0.1999999563[m
+[32m+[m[32m0.0470648912 0.1999999563[m
+[32m+[m[32m0.0456471879 0.1999999563[m
+[32m+[m[32m0.0442294846 0.1999999563[m
+[32m+[m[32m0.0428117814 0.1999999563[m
+[32m+[m[32m0.0413940781 0.1999999563[m
+[32m+[m[32m0.0399763749 0.1999999563[m
+[32m+[m[32m0.0385586716 0.1999999563[m
+[32m+[m[32m0.0371409684 0.1999999563[m
+[32m+[m[32m0.0357232651 0.1999999563[m
+[32m+[m[32m0.0343055619 0.1999999563[m
+[32m+[m[32m0.0328878586 0.1999999563[m
+[32m+[m[32m0.0314701553 0.1999999563[m
+[32m+[m[32m0.0300524521 0.1999999563[m
+[32m+[m[32m0.0286347488 0.1999999563[m
+[32m+[m[32m0.0272170456 0.1999999563[m
+[32m+[m[32m0.0257993423 0.1999999563[m
+[32m+[m[32m0.0243816391 0.1999999563[m
+[32m+[m[32m0.0229639358 0.1999999563[m
+[32m+[m[32m0.0215462325 0.1999999563[m
+[32m+[m[32m0.0201285293 0.1999999563[m
+[32m+[m[32m0.0187108260 0.1999999563[m
+[32m+[m[32m0.0172931228 0.1999999563[m
+[32m+[m[32m0.0158754195 0.1999999563[m
+[32m+[m[32m0.0144577163 0.1999999563[m
+[32m+[m[32m0.0130400130 0.1999999563[m
+[32m+[m[32m0.0116223097 0.1999999563[m
+[32m+[m[32m0.0102046065 0.1999999563[m
+[32m+[m[32m0.0100000120 0.2012130650[m
+[32m+[m[32m0.0100000120 0.2026307682[m
+[32m+[m[32m0.0100000120 0.2040484715[m
+[32m+[m[32m0.0100000120 0.2054661748[m
+[32m+[m[32m0.0100000120 0.2068838780[m
+[32m+[m[32m0.0100000120 0.2083015813[m
+[32m+[m[32m0.0100000120 0.2097192845[m
+[32m+[m[32m0.0100000120 0.2111369878[m
+[32m+[m[32m0.0100000120 0.2125546910[m
+[32m+[m[32m0.0100000120 0.2139723943[m
+[32m+[m[32m0.0100000120 0.2153900975[m
+[32m+[m[32m0.0100000120 0.2168078008[m
+[32m+[m[32m0.0100000120 0.2182255041[m
+[32m+[m[32m0.0100000120 0.2196432073[m
+[32m+[m[32m0.0100000120 0.2210609106[m
+[32m+[m[32m0.0100000120 0.2224786138[m
+[32m+[m[32m0.0100000120 0.2238963171[m
+[32m+[m[32m0.0100000120 0.2253140203[m
+[32m+[m[32m0.0100000120 0.2267317236[m
+[32m+[m[32m0.0100000120 0.2281494269[m
+[32m+[m[32m0.0100000120 0.2295671301[m
+[32m+[m[32m0.0100000120 0.2309848334[m
+[32m+[m[32m0.0100000120 0.2324025366[m
+[32m+[m[32m0.0100000120 0.2338202399[m
+[32m+[m[32m0.0100000120 0.2352379431[m
+[32m+[m[32m0.0100000120 0.2366556464[m
+[32m+[m[32m0.0100000120 0.2380733496[m
+[32m+[m[32m0.0100000120 0.2394910529[m
+[32m+[m[32m0.0106426305 0.2406425748[m
+[32m+[m[32m0.0116450981 0.2416450424[m
+[32m+[m[32m0.0126475657 0.2426475100[m
+[32m+[m[32m0.0136500333 0.2436499776[m
+[32m+[m[32m0.0146525009 0.2446524452[m
+[32m+[m[32m0.0156549685 0.2456549128[m
+[32m+[m[32m0.0166574360 0.2466573804[m
+[32m+[m[32m0.0176599036 0.2476598479[m
+[32m+[m[32m0.0186623712 0.2486623155[m
+[32m+[m[32m0.0196648388 0.2496647831[m
+[32m+[m[32m0.0200000120 0.2509436531[m
+[32m+[m[32m0.0200000120 0.2523613564[m
+[32m+[m[32m0.0200000120 0.2537790596[m
+[32m+[m[32m0.0200000120 0.2551967629[m
+[32m+[m[32m0.0200000120 0.2566144661[m
+[32m+[m[32m0.0200000120 0.2580321694[m
+[32m+[m[32m0.0200000120 0.2594498726[m
+[32m+[m[32m0.0200000120 0.2608675759[m
+[32m+[m[32m0.0200000120 0.2622852792[m
+[32m+[m[32m0.0200000120 0.2637029824[m
+[32m+[m[32m0.0200000120 0.2651206857[m
+[32m+[m[32m0.0200000120 0.2665383889[m
+[32m+[m[32m0.0200000120 0.2679560922[m
+[32m+[m[32m0.0200000120 0.2693737954[m
+[32m+[m[32m0.0200000120 0.2707914987[m
+[32m+[m[32m0.0200000120 0.2722092019[m
+[32m+[m[32m0.0200000120 0.2736269052[m
+[32m+[m[32m0.0200000120 0.2750446085[m
+[32m+[m[32m0.0200000120 0.2764623117[m
+[32m+[m[32m0.0200000120 0.2778800150[m
+[32m+[m[32m0.0200000120 0.2792977182[m
+[32m+[m[32m0.0200000120 0.2807154215[m
+[32m+[m[32m0.0200000120 0.2821331247[m
+[32m+[m[32m0.0200000120 0.2835508280[m
+[32m+[m[32m0.0200000120 0.2849685313[m
+[32m+[m[32m0.0200000120 0.2863862345[m
+[32m+[m[32m0.0200000120 0.2878039378[m
+[32m+[m[32m0.0200000120 0.2892216410[m
+[32m+[m[32m0.0200000120 0.2906393443[m
+[32m+[m[32m0.0200000120 0.2920570475[m
+[32m+[m[32m0.0200000120 0.2934747508[m
+[32m+[m[32m0.0200000120 0.2948924540[m
+[32m+[m[32m0.0200000120 0.2963101573[m
+[32m+[m[32m0.0200000120 0.2977278606[m
+[32m+[m[32m0.0200000120 0.2991455638[m
+[32m+[m[32m0.0200000120 0.3005632671[m
+[32m+[m[32m0.0200000120 0.3019809703[m
+[32m+[m[32m0.0200000120 0.3033986736[m
+[32m+[m[32m0.0200000120 0.3048163768[m
+[32m+[m[32m0.0200000120 0.3062340801[m
+[32m+[m[32m0.0200000120 0.3076517834[m
+[32m+[m[32m0.0200000120 0.3090694866[m
+[32m+[m[32m0.0200000120 0.3104871899[m
+[32m+[m[32m0.0200000120 0.3119048931[m
+[32m+[m[32m0.0200000120 0.3133225964[m
+[32m+[m[32m0.0200000120 0.3147402996[m
+[32m+[m[32m0.0200000120 0.3161580029[m
+[32m+[m[32m0.0200000120 0.3175757061[m
+[32m+[m[32m0.0200000120 0.3189934094[m
+[32m+[m[32m0.0200000120 0.3204111127[m
+[32m+[m[32m0.0200000120 0.3218288159[m
+[32m+[m[32m0.0200000120 0.3232465192[m
+[32m+[m[32m0.0200000120 0.3246642224[m
+[32m+[m[32m0.0200000120 0.3260819257[m
+[32m+[m[32m0.0200000120 0.3274996289[m
+[32m+[m[32m0.0200000120 0.3289173322[m
+[32m+[m[32m0.0200000120 0.3303350355[m
+[32m+[m[32m0.0200000120 0.3317527387[m
+[32m+[m[32m0.0200000120 0.3331704420[m
+[32m+[m[32m0.0200000120 0.3345881452[m
+[32m+[m[32m0.0200000120 0.3360058485[m
+[32m+[m[32m0.0200000120 0.3374235517[m
+[32m+[m[32m0.0200000120 0.3388412550[m
+[32m+[m[32m0.0200000120 0.3402589583[m
+[32m+[m[32m0.0200000120 0.3416766615[m
+[32m+[m[32m0.0200000120 0.3430943648[m
+[32m+[m[32m0.0200000120 0.3445120680[m
+[32m+[m[32m0.0200000120 0.3459297713[m
+[32m+[m[32m0.0200000120 0.3473474745[m
+[32m+[m[32m0.0200000120 0.3487651778[m
+[32m+[m[32m0.0201829367 0.3499999563[m
+[32m+[m[32m0.0216006400 0.3499999563[m
+[32m+[m[32m0.0230183432 0.3499999563[m
+[32m+[m[32m0.0244360465 0.3499999563[m
+[32m+[m[32m0.0258537498 0.3499999563[m
+[32m+[m[32m0.0272714530 0.3499999563[m
+[32m+[m[32m0.0286891563 0.3499999563[m
+[32m+[m[32m0.0301068595 0.3499999563[m
+[32m+[m[32m0.0315245628 0.3499999563[m
+[32m+[m[32m0.0329422660 0.3499999563[m
+[32m+[m[32m0.0343599693 0.3499999563[m
+[32m+[m[32m0.0357776726 0.3499999563[m
+[32m+[m[32m0.0371953758 0.3499999563[m
+[32m+[m[32m0.0386130791 0.3499999563[m
+[32m+[m[32m0.0400307823 0.3499999563[m
+[32m+[m[32m0.0414484856 0.3499999563[m
+[32m+[m[32m0.0428661888 0.3499999563[m
+[32m+[m[32m0.0442838921 0.3499999563[m
+[32m+[m[32m0.0457015953 0.3499999563[m
+[32m+[m[32m0.0471192986 0.3499999563[m
+[32m+[m[32m0.0485370019 0.3499999563[m
+[32m+[m[32m0.0499547051 0.3499999563[m
+[32m+[m[32m0.0513724084 0.3499999563[m
+[32m+[m[32m0.0527901116 0.3499999563[m
+[32m+[m[32m0.0542078149 0.3499999563[m
+[32m+[m[32m0.0556255181 0.3499999563[m
+[32m+[m[32m0.0570432214 0.3499999563[m
+[32m+[m[32m0.0584609247 0.3499999563[m
+[32m+[m[32m0.0598786279 0.3499999563[m
+[32m+[m[32m0.0612963312 0.3499999563[m
+[32m+[m[32m0.0627140344 0.3499999563[m
+[32m+[m[32m0.0641317377 0.3499999563[m
+[32m+[m[32m0.0655494409 0.3499999563[m
+[32m+[m[32m0.0669671442 0.3499999563[m
+[32m+[m[32m0.0683848474 0.3499999563[m
+[32m+[m[32m0.0698025507 0.3499999563[m
+[32m+[m[32m0.0712202540 0.3499999563[m
+[32m+[m[32m0.0726379572 0.3499999563[m
+[32m+[m[32m0.0740556605 0.3499999563[m
+[32m+[m[32m0.0754733637 0.3499999563[m
+[32m+[m[32m0.0768910670 0.3499999563[m
+[32m+[m[32m0.0783087702 0.3499999563[m
+[32m+[m[32m0.0797264735 0.3499999563[m
+[32m+[m[32m0.0811441768 0.3499999563[m
+[32m+[m[32m0.0825618800 0.3499999563[m
+[32m+[m[32m0.0839795833 0.3499999563[m
+[32m+[m[32m0.0853972865 0.3499999563[m
+[32m+[m[32m0.0868149898 0.3499999563[m
+[32m+[m[32m0.0882326930 0.3499999563[m
+[32m+[m[32m0.0896503963 0.3499999563[m
+[32m+[m[32m0.0910680995 0.3499999563[m
+[32m+[m[32m0.0924858028 0.3499999563[m
+[32m+[m[32m0.0939035061 0.3499999563[m
+[32m+[m[32m0.0953212093 0.3499999563[m
+[32m+[m[32m0.0967389126 0.3499999563[m
+[32m+[m[32m0.0981566158 0.3499999563[m
+[32m+[m[32m0.0995743191 0.3499999563[m
+[32m+[m[32m0.1009920223 0.3499999563[m
+[32m+[m[32m0.1024097256 0.3499999563[m
+[32m+[m[32m0.1038274289 0.3499999563[m
+[32m+[m[32m0.1052451321 0.3499999563[m
+[32m+[m[32m0.1066628354 0.3499999563[m
+[32m+[m[32m0.1080805386 0.3499999563[m
+[32m+[m[32m0.1094982419 0.3499999563[m
+[32m+[m[32m0.1109159451 0.3499999563[m
+[32m+[m[32m0.1123336484 0.3499999563[m
+[32m+[m[32m0.1137513517 0.3499999563[m
+[32m+[m[32m0.1151690549 0.3499999563[m
+[32m+[m[32m0.1165867582 0.3499999563[m
+[32m+[m[32m0.1180044614 0.3499999563[m
+[32m+[m[32m0.1194221647 0.3499999563[m
+[32m+[m[32m0.1208398679 0.3499999563[m
+[32m+[m[32m0.1222575712 0.3499999563[m
+[32m+[m[32m0.1236752744 0.3499999563[m
+[32m+[m[32m0.1250929777 0.3499999563[m
+[32m+[m[32m0.1265106810 0.3499999563[m
+[32m+[m[32m0.1279283842 0.3499999563[m
+[32m+[m[32m0.1293460875 0.3499999563[m
+[32m+[m[32m0.1307637907 0.3499999563[m
+[32m+[m[32m0.1321814940 0.3499999563[m
+[32m+[m[32m0.1335991972 0.3499999563[m
+[32m+[m[32m0.1350169005 0.3499999563[m
+[32m+[m[32m0.1364346038 0.3499999563[m
+[32m+[m[32m0.1378523070 0.3499999563[m
+[32m+[m[32m0.1392700103 0.3499999563[m
+[32m+[m[32m0.1406877135 0.3499999563[m
+[32m+[m[32m0.1421054168 0.3499999563[m
+[32m+[m[32m0.1435231200 0.3499999563[m
+[32m+[m[32m0.1449408233 0.3499999563[m
+[32m+[m[32m0.1463585265 0.3499999563[m
+[32m+[m[32m0.1477762298 0.3499999563[m
+[32m+[m[32m0.1491939331 0.3499999563[m
+[32m+[m[32m0.1506116363 0.3499999563[m
+[32m+[m[32m0.1520293396 0.3499999563[m
+[32m+[m[32m0.1534470428 0.3499999563[m
+[32m+[m[32m0.1548647461 0.3499999563[m
+[32m+[m[32m0.1562824493 0.3499999563[m
+[32m+[m[32m0.1577001526 0.3499999563[m
+[32m+[m[32m0.1591178559 0.3499999563[m
+[32m+[m[32m0.1605355591 0.3499999563[m
+[32m+[m[32m0.1619532624 0.3499999563[m
+[32m+[m[32m0.1633709656 0.3499999563[m
+[32m+[m[32m0.1647886689 0.3499999563[m
+[32m+[m[32m0.1662063721 0.3499999563[m
+[32m+[m[32m0.1676240754 0.3499999563[m
+[32m+[m[32m0.1690417786 0.3499999563[m
+[32m+[m[32m0.1704594819 0.3499999563[m
+[32m+[m[32m0.1718771852 0.3499999563[m
+[32m+[m[32m0.1732948884 0.3499999563[m
+[32m+[m[32m0.1747125917 0.3499999563[m
+[32m+[m[32m0.1761302949 0.3499999563[m
+[32m+[m[32m0.1775479982 0.3499999563[m
+[32m+[m[32m0.1789657014 0.3499999563[m
+[32m+[m[32m0.1803834047 0.3499999563[m
+[32m+[m[32m0.1818011080 0.3499999563[m
+[32m+[m[32m0.1832188112 0.3499999563[m
+[32m+[m[32m0.1846365145 0.3499999563[m
+[32m+[m[32m0.1860542177 0.3499999563[m
+[32m+[m[32m0.1874719210 0.3499999563[m
+[32m+[m[32m0.1888896242 0.3499999563[m
+[32m+[m[32m0.1903073275 0.3499999563[m
+[32m+[m[32m0.1917250308 0.3499999563[m
+[32m+[m[32m0.1931427340 0.3499999563[m
+[32m+[m[32m0.1945604373 0.3499999563[m
+[32m+[m[32m0.1959781405 0.3499999563[m
+[32m+[m[32m0.1973958438 0.3499999563[m
+[32m+[m[32m0.1988135470 0.3499999563[m
+[32m+[m[32m0.2002312503 0.3499999563[m
+[32m+[m[32m0.2016489535 0.3499999563[m
+[32m+[m[32m0.2030666568 0.3499999563[m
+[32m+[m[32m0.2044843601 0.3499999563[m
+[32m+[m[32m0.2059020633 0.3499999563[m
+[32m+[m[32m0.2073197666 0.3499999563[m
+[32m+[m[32m0.2087374698 0.3499999563[m
+[32m+[m[32m0.2101551731 0.3499999563[m
+[32m+[m[32m0.2115728763 0.3499999563[m
+[32m+[m[32m0.2129905796 0.3499999563[m
+[32m+[m[32m0.2144082829 0.3499999563[m
+[32m+[m[32m0.2158259861 0.3499999563[m
+[32m+[m[32m0.2172436894 0.3499999563[m
+[32m+[m[32m0.2186613926 0.3499999563[m
+[32m+[m[32m0.2200790959 0.3499999563[m
+[32m+[m[32m0.2214967991 0.3499999563[m
+[32m+[m[32m0.2229145024 0.3499999563[m
+[32m+[m[32m0.2243322056 0.3499999563[m
+[32m+[m[32m0.2257499089 0.3499999563[m
+[32m+[m[32m0.2271676122 0.3499999563[m
+[32m+[m[32m0.2285853154 0.3499999563[m
+[32m+[m[32m0.2300030187 0.3499999563[m
+[32m+[m[32m0.2314207219 0.3499999563[m
+[32m+[m[32m0.2328384252 0.3499999563[m
+[32m+[m[32m0.2342561284 0.3499999563[m
+[32m+[m[32m0.2356738317 0.3499999563[m
+[32m+[m[32m0.2370915350 0.3499999563[m
+[32m+[m[32m0.2385092382 0.3499999563[m
+[32m+[m[32m0.2399269415 0.3499999563[m
+[32m+[m[32m0.2413446447 0.3499999563[m
+[32m+[m[32m0.2427623480 0.3499999563[m
+[32m+[m[32m0.2441800512 0.3499999563[m
+[32m+[m[32m0.2455977545 0.3499999563[m
+[32m+[m[32m0.2470154577 0.3499999563[m
+[32m+[m[32m0.2484331610 0.3499999563[m
+[32m+[m[32m0.2498508643 0.3499999563[m
+[32m+[m[32m0.2500000120 0.3487314007[m
+[32m+[m[32m0.2500000120 0.3473136974[m
+[32m+[m[32m0.2500000120 0.3458959942[m
+[32m+[m[32m0.2500000120 0.3444782909[m
+[32m+[m[32m0.2500000120 0.3430605877[m
+[32m+[m[32m0.2500000120 0.3416428844[m
+[32m+[m[32m0.2500000120 0.3402251812[m
+[32m+[m[32m0.2500000120 0.3388074779[m
+[32m+[m[32m0.2500000120 0.3373897746[m
+[32m+[m[32m0.2500000120 0.3359720714[m
+[32m+[m[32m0.2500000120 0.3345543681[m
+[32m+[m[32m0.2500000120 0.3331366649[m
+[32m+[m[32m0.2500000120 0.3317189616[m
+[32m+[m[32m0.2500000120 0.3303012584[m
+[32m+[m[32m0.2500000120 0.3288835551[m
+[32m+[m[32m0.2500000120 0.3274658519[m
+[32m+[m[32m0.2500000120 0.3260481486[m
+[32m+[m[32m0.2500000120 0.3246304453[m
+[32m+[m[32m0.2500000120 0.3232127421[m
+[32m+[m[32m0.2500000120 0.3217950388[m
+[32m+[m[32m0.2500000120 0.3203773356[m
+[32m+[m[32m0.2500000120 0.3189596323[m
+[32m+[m[32m0.2500000120 0.3175419291[m
+[32m+[m[32m0.2500000120 0.3161242258[m
+[32m+[m[32m0.2500000120 0.3147065225[m
+[32m+[m[32m0.2500000120 0.3132888193[m
+[32m+[m[32m0.2500000120 0.3118711160[m
+[32m+[m[32m0.2500000120 0.3104534128[m
+[32m+[m[32m0.2500000120 0.3090357095[m
+[32m+[m[32m0.2500000120 0.3076180063[m
+[32m+[m[32m0.2500000120 0.3062003030[m
+[32m+[m[32m0.2500000120 0.3047825998[m
+[32m+[m[32m0.2500000120 0.3033648965[m
+[32m+[m[32m0.2500000120 0.3019471932[m
+[32m+[m[32m0.2500000120 0.3005294900[m
+[32m+[m[32m0.2500000120 0.2991117867[m
+[32m+[m[32m0.2500000120 0.2976940835[m
+[32m+[m[32m0.2500000120 0.2962763802[m
+[32m+[m[32m0.2500000120 0.2948586770[m
+[32m+[m[32m0.2500000120 0.2934409737[m
+[32m+[m[32m0.2500000120 0.2920232704[m
+[32m+[m[32m0.2500000120 0.2906055672[m
+[32m+[m[32m0.2500000120 0.2891878639[m
+[32m+[m[32m0.2500000120 0.2877701607[m
+[32m+[m[32m0.2500000120 0.2863524574[m
+[32m+[m[32m0.2500000120 0.2849347542[m
+[32m+[m[32m0.2500000120 0.2835170509[m
+[32m+[m[32m0.2500000120 0.2820993476[m
+[32m+[m[32m0.2500000120 0.2806816444[m
+[32m+[m[32m0.2500000120 0.2792639411[m
+[32m+[m[32m0.2500000120 0.2778462379[m
+[32m+[m[32m0.2500000120 0.2764285346[m
+[32m+[m[32m0.2500000120 0.2750108314[m
+[32m+[m[32m0.2500000120 0.2735931281[m
+[32m+[m[32m0.2500000120 0.2721754249[m
+[32m+[m[32m0.2500000120 0.2707577216[m
+[32m+[m[32m0.2500000120 0.2693400183[m
+[32m+[m[32m0.2500000120 0.2679223151[m
+[32m+[m[32m0.2500000120 0.2665046118[m
+[32m+[m[32m0.2500000120 0.2650869086[m
+[32m+[m[32m0.2500000120 0.2636692053[m
+[32m+[m[32m0.2500000120 0.2622515021[m
+[32m+[m[32m0.2500000120 0.2608337988[m
+[32m+[m[32m0.2500000120 0.2594160955[m
+[32m+[m[32m0.2500000120 0.2579983923[m
+[32m+[m[32m0.2500000120 0.2565806890[m
+[32m+[m[32m0.2500000120 0.2551629858[m
+[32m+[m[32m0.2500000120 0.2537452825[m
+[32m+[m[32m0.2500000120 0.2523275793[m
+[32m+[m[32m0.2500000120 0.2509098760[m
+[32m+[m[32m0.2500000120 0.2494921728[m
+[32m+[m[32m0.2500000120 0.2480744695[m
+[32m+[m[32m0.2500000120 0.2466567662[m
+[32m+[m[32m0.2500000120 0.2452390630[m
+[32m+[m[32m0.2500000120 0.2438213597[m
+[32m+[m[32m0.2500000120 0.2424036565[m
+[32m+[m[32m0.2500000120 0.2409859532[m
+[32m+[m[32m0.2500000120 0.2395682500[m
+[32m+[m[32m0.2500000120 0.2381505467[m
+[32m+[m[32m0.2500000120 0.2367328434[m
+[32m+[m[32m0.2500000120 0.2353151402[m
+[32m+[m[32m0.2500000120 0.2338974369[m
+[32m+[m[32m0.2500000120 0.2324797337[m
+[32m+[m[32m0.2500000120 0.2310620304[m
+[32m+[m[32m0.2500000120 0.2296443272[m
+[32m+[m[32m0.2500000120 0.2282266239[m
+[32m+[m[32m0.2500000120 0.2268089207[m
+[32m+[m[32m0.2500000120 0.2253912174[m
+[32m+[m[32m0.2500000120 0.2239735141[m
+[32m+[m[32m0.2500000120 0.2225558109[m
+[32m+[m[32m0.2500000120 0.2211381076[m
+[32m+[m[32m0.2500000120 0.2197204044[m
+[32m+[m[32m0.2500000120 0.2183027011[m
+[32m+[m[32m0.2500000120 0.2168849979[m
+[32m+[m[32m0.2500000120 0.2154672946[m
+[32m+[m[32m0.2500000120 0.2140495913[m
+[32m+[m[32m0.2500000120 0.2126318881[m
+[32m+[m[32m0.2500000120 0.2112141848[m
+[32m+[m[32m0.2500000120 0.2097964816[m
+[32m+[m[32m0.2500000120 0.2083787783[m
+[32m+[m[32m0.2500000120 0.2069610751[m
+[32m+[m[32m0.2500000120 0.2055433718[m
+[32m+[m[32m0.2500000120 0.2041256685[m
+[32m+[m[32m0.2500000120 0.2027079653[m
+[32m+[m[32m0.2500000120 0.2012902620[m
+[32m+[m[32m0.2500000120 0.1998725588[m
+[32m+[m[32m0.2500000120 0.1984548555[m
+[32m+[m[32m0.2500000120 0.1970371523[m
+[32m+[m[32m0.2500000120 0.1956194490[m
+[32m+[m[32m0.2500000120 0.1942017458[m
+[32m+[m[32m0.2500000120 0.1927840425[m
+[32m+[m[32m0.2500000120 0.1913663392[m
+[32m+[m[32m0.2500000120 0.1899486360[m
+[32m+[m[32m0.2500000120 0.1885309327[m
+[32m+[m[32m0.2500000120 0.1871132295[m
+[32m+[m[32m0.2500000120 0.1856955262[m
+[32m+[m[32m0.2500000120 0.1842778230[m
+[32m+[m[32m0.2500000120 0.1828601197[m
+[32m+[m[32m0.2500000120 0.1814424164[m
+[32m+[m[32m0.2500000120 0.1800247132[m
+[32m+[m[32m0.2500000120 0.1786070099[m
+[32m+[m[32m0.2500000120 0.1771893067[m
+[32m+[m[32m0.2500000120 0.1757716034[m
+[32m+[m[32m0.2500000120 0.1743539002[m
+[32m+[m[32m0.2500000120 0.1729361969[m
+[32m+[m[32m0.2500000120 0.1715184937[m
+[32m+[m[32m0.2500000120 0.1701007904[m
+[32m+[m[32m0.2500000120 0.1686830871[m
+[32m+[m[32m0.2500000120 0.1672653839[m
+[32m+[m[32m0.2500000120 0.1658476806[m
+[32m+[m[32m0.2500000120 0.1644299774[m
+[32m+[m[32m0.2500000120 0.1630122741[m
+[32m+[m[32m0.2500000120 0.1615945709[m
+[32m+[m[32m0.2500000120 0.1601768676[m
+[32m+[m[32m0.2500000120 0.1587591643[m
+[32m+[m[32m0.2500000120 0.1573414611[m
+[32m+[m[32m0.2500000120 0.1559237578[m
+[32m+[m[32m0.2500000120 0.1545060546[m
+[32m+[m[32m0.2500000120 0.1530883513[m
+[32m+[m[32m0.2500000120 0.1516706481[m
+[32m+[m[32m0.2500000120 0.1502529448[m
+[32m+[m[32m0.2500000120 0.1488352416[m
+[32m+[m[32m0.2500000120 0.1474175383[m
+[32m+[m[32m0.2500000120 0.1459998350[m
+[32m+[m[32m0.2500000120 0.1445821318[m
+[32m+[m[32m0.2500000120 0.1431644285[m
+[32m+[m[32m0.2500000120 0.1417467253[m
+[32m+[m[32m0.2500000120 0.1403290220[m
+[32m+[m[32m0.2500000120 0.1389113188[m
+[32m+[m[32m0.2500000120 0.1374936155[m
+[32m+[m[32m0.2500000120 0.1360759122[m
+[32m+[m[32m0.2500000120 0.1346582090[m
+[32m+[m[32m0.2500000120 0.1332405057[m
+[32m+[m[32m0.2500000120 0.1318228025[m
+[32m+[m[32m0.2500000120 0.1304050992[m
+[32m+[m[32m0.2500000120 0.1289873960[m
+[32m+[m[32m0.2500000120 0.1275696927[m
+[32m+[m[32m0.2500000120 0.1261519894[m
+[32m+[m[32m0.2500000120 0.1247342862[m
+[32m+[m[32m0.2500000120 0.1233165829[m
+[32m+[m[32m0.2500000120 0.1218988797[m
+[32m+[m[32m0.2500000120 0.1204811764[m
+[32m+[m[32m0.2500000120 0.1190634732[m
+[32m+[m[32m0.2500000120 0.1176457699[m
+[32m+[m[32m0.2500000120 0.1162280667[m
+[32m+[m[32m0.2500000120 0.1148103634[m
+[32m+[m[32m0.2500000120 0.1133926601[m
+[32m+[m[32m0.2500000120 0.1119749569[m
+[32m+[m[32m0.2500000120 0.1105572536[m
+[32m+[m[32m0.2500000120 0.1091395504[m
+[32m+[m[32m0.2500000120 0.1077218471[m
+[32m+[m[32m0.2500000120 0.1063041439[m
+[32m+[m[32m0.2500000120 0.1048864406[m
+[32m+[m[32m0.2500000120 0.1034687373[m
+[32m+[m[32m0.2500000120 0.1020510341[m
+[32m+[m[32m0.2500000120 0.1006333308[m
+[32m+[m[32m0.2500000120 0.0992156276[m
+[32m+[m[32m0.2500000120 0.0977979243[m
+[32m+[m[32m0.2500000120 0.0963802211[m
+[32m+[m[32m0.2500000120 0.0949625178[m
+[32m+[m[32m0.2500000120 0.0935448146[m
+[32m+[m[32m0.2500000120 0.0921271113[m
+[32m+[m[32m0.2500000120 0.0907094080[m
+[32m+[m[32m0.2500000120 0.0892917048[m
+[32m+[m[32m0.2500000120 0.0878740015[m
+[32m+[m[32m0.2500000120 0.0864562983[m
+[32m+[m[32m0.2500000120 0.0850385950[m
+[32m+[m[32m0.2500000120 0.0836208918[m
+[32m+[m[32m0.2500000120 0.0822031885[m
+[32m+[m[32m0.2500000120 0.0807854852[m
+[32m+[m[32m0.2500000120 0.0793677820[m
+[32m+[m[32m0.2500000120 0.0779500787[m
+[32m+[m[32m0.2500000120 0.0765323755[m
+[32m+[m[32m0.2500000120 0.0751146722[m
+[32m+[m[32m0.2500000120 0.0736969690[m
+[32m+[m[32m0.2500000120 0.0722792657[m
+[32m+[m[32m0.2500000120 0.0708615625[m
+[32m+[m[32m0.2500000120 0.0694438592[m
+[32m+[m[32m0.2500000120 0.0680261559[m
+[32m+[m[32m0.2500000120 0.0666084527[m
+[32m+[m[32m0.2500000120 0.0651907494[m
+[32m+[m[32m0.2500000120 0.0637730462[m
+[32m+[m[32m0.2500000120 0.0623553429[m
+[32m+[m[32m0.2500000120 0.0609376397[m
+[32m+[m[32m0.2500000120 0.0595199364[m
+[32m+[m[32m0.2500000120 0.0581022331[m
+[32m+[m[32m0.2500000120 0.0566845299[m
+[32m+[m[32m0.2500000120 0.0552668266[m
+[32m+[m[32m0.2500000120 0.0538491234[m
+[32m+[m[32m0.2500000120 0.0524314201[m
+[32m+[m[32m0.2500000120 0.0510137169[m
+[32m+[m[32m0.2500000120 0.0495960136[m
+[32m+[m[32m0.2500000120 0.0481783103[m
+[32m+[m[32m0.2500000120 0.0467606071[m
+[32m+[m[32m0.2500000120 0.0453429038[m
+[32m+[m[32m0.2500000120 0.0439252006[m
+[32m+[m[32m0.2500000120 0.0425074973[m
+[32m+[m[32m0.2500000120 0.0410897941[m
+[32m+[m[32m0.2500000120 0.0396720908[m
+[32m+[m[32m0.2500000120 0.0382543876[m
+[32m+[m[32m0.2500000120 0.0368366843[m
+[32m+[m[32m0.2500000120 0.0354189810[m
+[32m+[m[32m0.2500000120 0.0340012778[m
+[32m+[m[32m0.2500000120 0.0325835745[m
+[32m+[m[32m0.2500000120 0.0311658713[m
+[32m+[m[32m0.2500000120 0.0297481680[m
+[32m+[m[32m0.2500000120 0.0283304648[m
+[32m+[m[32m0.2500000120 0.0269127615[m
+[32m+[m[32m0.2500000120 0.0254950582[m
+[32m+[m[32m0.2500000120 0.0240773550[m
+[32m+[m[32m0.2500000120 0.0226596517[m
+[32m+[m[32m0.2500000120 0.0212419485[m
+[32m+[m[32m0.2500000120 0.0198242452[m
+[32m+[m[32m0.2500000120 0.0184065420[m
+[32m+[m[32m0.2500000120 0.0169888387[m
+[32m+[m[32m0.2500000120 0.0155711355[m
+[32m+[m[32m0.2500000120 0.0141534322[m
+[32m+[m[32m0.2500000120 0.0127357289[m
+[32m+[m[32m0.2500000120 0.0113180257[m
+[32m+[m[32m0.2500000120 0.0099003224[m
+[32m+[m[32m0.2500000120 0.0084826192[m
+[32m+[m[32m0.2500000120 0.0070649159[m
+[32m+[m[32m0.2500000120 0.0056472127[m
+[32m+[m[32m0.2500000120 0.0042295094[m
+[32m+[m[32m0.2500000120 0.0028118061[m
+[32m+[m[32m0.2500000120 0.0013941029[m
+[32m+[m[32m0.2500000120 -0.0000236004[m
+[32m+[m[32m0.2500000120 -0.0014413036[m
+[32m+[m[32m0.2500000120 -0.0028590069[m
+[32m+[m[32m0.2500000120 -0.0042767101[m
+[32m+[m[32m0.2500000120 -0.0056944134[m
+[32m+[m[32m0.2500000120 -0.0071121166[m
+[32m+[m[32m0.2500000120 -0.0085298199[m
+[32m+[m[32m0.2500000120 -0.0099475232[m
+[32m+[m[32m0.2500000120 -0.0113652264[m
+[32m+[m[32m0.2500000120 -0.0127829297[m
+[32m+[m[32m0.2500000120 -0.0142006329[m
+[32m+[m[32m0.2500000120 -0.0156183362[m
+[32m+[m[32m0.2500000120 -0.0170360394[m
+[32m+[m[32m0.2500000120 -0.0184537427[m
+[32m+[m[32m0.2500000120 -0.0198714460[m
+[32m+[m[32m0.2500000120 -0.0212891492[m
+[32m+[m[32m0.2500000120 -0.0227068525[m
+[32m+[m[32m0.2500000120 -0.0241245557[m
+[32m+[m[32m0.2500000120 -0.0255422590[m
+[32m+[m[32m0.2500000120 -0.0269599622[m
+[32m+[m[32m0.2500000120 -0.0283776655[m
+[32m+[m[32m0.2500000120 -0.0297953688[m
+[32m+[m[32m0.2500000120 -0.0312130720[m
+[32m+[m[32m0.2500000120 -0.0326307753[m
+[32m+[m[32m0.2500000120 -0.0340484785[m
+[32m+[m[32m0.2500000120 -0.0354661818[m
+[32m+[m[32m0.2500000120 -0.0368838850[m
+[32m+[m[32m0.2500000120 -0.0383015883[m
+[32m+[m[32m0.2500000120 -0.0397192915[m
+[32m+[m[32m0.2500000120 -0.0411369948[m
+[32m+[m[32m0.2500000120 -0.0425546981[m
+[32m+[m[32m0.2500000120 -0.0439724013[m
+[32m+[m[32m0.2500000120 -0.0453901046[m
+[32m+[m[32m0.2500000120 -0.0468078078[m
+[32m+[m[32m0.2500000120 -0.0482255111[m
+[32m+[m[32m0.2500000120 -0.0496432143[m
+[32m+[m[32m0.2500000120 -0.0510609176[m
+[32m+[m[32m0.2500000120 -0.0524786209[m
+[32m+[m[32m0.2500000120 -0.0538963241[m
+[32m+[m[32m0.2500000120 -0.0553140274[m
+[32m+[m[32m0.2500000120 -0.0567317306[m
+[32m+[m[32m0.2500000120 -0.0581494339[m
+[32m+[m[32m0.2500000120 -0.0595671371[m
+[32m+[m[32m0.2500000120 -0.0609848404[m
+[32m+[m[32m0.2500000120 -0.0624025436[m
+[32m+[m[32m0.2500000120 -0.0638202469[m
+[32m+[m[32m0.2500000120 -0.0652379502[m
+[32m+[m[32m0.2500000120 -0.0666556534[m
+[32m+[m[32m0.2500000120 -0.0680733567[m
+[32m+[m[32m0.2500000120 -0.0694910599[m
+[32m+[m[32m0.2500000120 -0.0709087632[m
+[32m+[m[32m0.2500000120 -0.0723264664[m
+[32m+[m[32m0.2500000120 -0.0737441697[m
+[32m+[m[32m0.2500000120 -0.0751618730[m
+[32m+[m[32m0.2500000120 -0.0765795762[m
+[32m+[m[32m0.2500000120 -0.0779972795[m
+[32m+[m[32m0.2500000120 -0.0794149827[m
+[32m+[m[32m0.2500000120 -0.0808326860[m
+[32m+[m[32m0.2500000120 -0.0822503892[m
+[32m+[m[32m0.2500000120 -0.0836680925[m
+[32m+[m[32m0.2500000120 -0.0850857958[m
+[32m+[m[32m0.2500000120 -0.0865034990[m
+[32m+[m[32m0.2500000120 -0.0879212023[m
+[32m+[m[32m0.2500000120 -0.0893389055[m
+[32m+[m[32m0.2500000120 -0.0907566088[m
+[32m+[m[32m0.2500000120 -0.0921743120[m
+[32m+[m[32m0.2500000120 -0.0935920153[m
+[32m+[m[32m0.2500000120 -0.0950097185[m
+[32m+[m[32m0.2500000120 -0.0964274218[m
+[32m+[m[32m0.2500000120 -0.0978451251[m
+[32m+[m[32m0.2500000120 -0.0992628283[m
+[32m+[m[32m0.2500000120 -0.1006805316[m
+[32m+[m[32m0.2500000120 -0.1020982348[m
+[32m+[m[32m0.2500000120 -0.1035159381[m
+[32m+[m[32m0.2500000120 -0.1049336413[m
+[32m+[m[32m0.2500000120 -0.1063513446[m
+[32m+[m[32m0.2500000120 -0.1077690479[m
+[32m+[m[32m0.2500000120 -0.1091867511[m
+[32m+[m[32m0.2500000120 -0.1106044544[m
+[32m+[m[32m0.2500000120 -0.1120221576[m
+[32m+[m[32m0.2500000120 -0.1134398609[m
+[32m+[m[32m0.2500000120 -0.1148575641[m
+[32m+[m[32m0.2500000120 -0.1162752674[m
+[32m+[m[32m0.2500000120 -0.1176929706[m
+[32m+[m[32m0.2500000120 -0.1191106739[m
+[32m+[m[32m0.2500000120 -0.1205283772[m
+[32m+[m[32m0.2500000120 -0.1219460804[m
+[32m+[m[32m0.2500000120 -0.1233637837[m
+[32m+[m[32m0.2500000120 -0.1247814869[m
+[32m+[m[32m0.2500000120 -0.1261991902[m
+[32m+[m[32m0.2500000120 -0.1276168934[m
+[32m+[m[32m0.2500000120 -0.1290345967[m
+[32m+[m[32m0.2500000120 -0.1304523000[m
+[32m+[m[32m0.2500000120 -0.1318700032[m
+[32m+[m[32m0.2500000120 -0.1332877065[m
+[32m+[m[32m0.2500000120 -0.1347054097[m
+[32m+[m[32m0.2500000120 -0.1361231130[m
+[32m+[m[32m0.2500000120 -0.1375408162[m
+[32m+[m[32m0.2500000120 -0.1389585195[m
+[32m+[m[32m0.2500000120 -0.1403762227[m
+[32m+[m[32m0.2500000120 -0.1417939260[m
+[32m+[m[32m0.2500000120 -0.1432116293[m
+[32m+[m[32m0.2500000120 -0.1446293325[m
+[32m+[m[32m0.2500000120 -0.1460470358[m
+[32m+[m[32m0.2500000120 -0.1474647390[m
+[32m+[m[32m0.2500000120 -0.1488824423[m
+[32m+[m[32m0.2496999101 -0.1500000437[m
+[32m+[m[32m0.2482822069 -0.1500000437[m
+[32m+[m[32m0.2468645036 -0.1500000437[m
+[32m+[m[32m0.2454468004 -0.1500000437[m
+[32m+[m[32m0.2440290971 -0.1500000437[m
+[32m+[m[32m0.2426113939 -0.1500000437[m
+[32m+[m[32m0.2411936906 -0.1500000437[m
+[32m+[m[32m0.2397759873 -0.1500000437[m
+[32m+[m[32m0.2383582841 -0.1500000437[m
+[32m+[m[32m0.2369405808 -0.1500000437[m
+[32m+[m[32m0.2355228776 -0.1500000437[m
+[32m+[m[32m0.2341051743 -0.1500000437[m
+[32m+[m[32m0.2326874711 -0.1500000437[m
+[32m+[m[32m0.2312697678 -0.1500000437[m
+[32m+[m[32m0.2298520646 -0.1500000437[m
+[32m+[m[32m0.2284343613 -0.1500000437[m
+[32m+[m[32m0.2270166580 -0.1500000437[m
+[32m+[m[32m0.2255989548 -0.1500000437[m
+[32m+[m[32m0.2241812515 -0.1500000437[m
+[32m+[m[32m0.2227635483 -0.1500000437[m
+[32m+[m[32m0.2213458450 -0.1500000437[m
+[32m+[m[32m0.2199281418 -0.1500000437[m
+[32m+[m[32m0.2185104385 -0.1500000437[m
+[32m+[m[32m0.2170927352 -0.1500000437[m
+[32m+[m[32m0.2156750320 -0.1500000437[m
+[32m+[m[32m0.2142573287 -0.1500000437[m
+[32m+[m[32m0.2128396255 -0.1500000437[m
+[32m+[m[32m0.2114219222 -0.1500000437[m
+[32m+[m[32m0.2100042190 -0.1500000437[m
+[32m+[m[32m0.2085865157 -0.1500000437[m
+[32m+[m[32m0.2071688125 -0.1500000437[m
+[32m+[m[32m0.2057511092 -0.1500000437[m
+[32m+[m[32m0.2043334059 -0.1500000437[m
+[32m+[m[32m0.2029157027 -0.1500000437[m
+[32m+[m[32m0.2014979994 -0.1500000437[m
+[32m+[m[32m0.2000802962 -0.1500000437[m
+[32m+[m[32m0.1986625929 -0.1500000437[m
+[32m+[m[32m0.1972448897 -0.1500000437[m
+[32m+[m[32m0.1958271864 -0.1500000437[m
+[32m+[m[32m0.1944094831 -0.1500000437[m
+[32m+[m[32m0.1929917799 -0.1500000437[m
+[32m+[m[32m0.1915740766 -0.1500000437[m
+[32m+[m[32m0.1901563734 -0.1500000437[m
+[32m+[m[32m0.1887386701 -0.1500000437[m
+[32m+[m[32m0.1873209669 -0.1500000437[m
+[32m+[m[32m0.1859032636 -0.1500000437[m
+[32m+[m[32m0.1844855603 -0.1500000437[m
+[32m+[m[32m0.1830678571 -0.1500000437[m
+[32m+[m[32m0.1816501538 -0.1500000437[m
+[32m+[m[32m0.1802324506 -0.1500000437[m
+[32m+[m[32m0.1788147473 -0.1500000437[m
+[32m+[m[32m0.1773970441 -0.1500000437[m
+[32m+[m[32m0.1759793408 -0.1500000437[m
+[32m+[m[32m0.1745616376 -0.1500000437[m
+[32m+[m[32m0.1731439343 -0.1500000437[m
+[32m+[m[32m0.1717262310 -0.1500000437[m
+[32m+[m[32m0.1703085278 -0.1500000437[m
+[32m+[m[32m0.1688908245 -0.1500000437[m
+[32m+[m[32m0.1674731213 -0.1500000437[m
+[32m+[m[32m0.1660554180 -0.1500000437[m
+[32m+[m[32m0.1646377148 -0.1500000437[m
+[32m+[m[32m0.1632200115 -0.1500000437[m
+[32m+[m[32m0.1618023082 -0.1500000437[m
+[32m+[m[32m0.1603846050 -0.1500000437[m
+[32m+[m[32m0.1589669017 -0.1500000437[m
+[32m+[m[32m0.1575491985 -0.1500000437[m
+[32m+[m[32m0.1561314952 -0.1500000437[m
+[32m+[m[32m0.1547137920 -0.1500000437[m
+[32m+[m[32m0.1532960887 -0.1500000437[m
+[32m+[m[32m0.1518783855 -0.1500000437[m
+[32m+[m[32m0.1504606822 -0.1500000437[m
+[32m+[m[32m0.1490429789 -0.1500000437[m
+[32m+[m[32m0.1476252757 -0.1500000437[m
+[32m+[m[32m0.1462075724 -0.1500000437[m
+[32m+[m[32m0.1447898692 -0.1500000437[m
+[32m+[m[32m0.1433721659 -0.1500000437[m
+[32m+[m[32m0.1419544627 -0.1500000437[m
+[32m+[m[32m0.1405367594 -0.1500000437[m
+[32m+[m[32m0.1391190561 -0.1500000437[m
+[32m+[m[32m0.1377013529 -0.1500000437[m
+[32m+[m[32m0.1362836496 -0.1500000437[m
+[32m+[m[32m0.1348659464 -0.1500000437[m
+[32m+[m[32m0.1334482431 -0.1500000437[m
+[32m+[m[32m0.1320305399 -0.1500000437[m
+[32m+[m[32m0.1306128366 -0.1500000437[m
+[32m+[m[32m0.1291951334 -0.1500000437[m
+[32m+[m[32m0.1277774301 -0.1500000437[m
+[32m+[m[32m0.1263597268 -0.1500000437[m
+[32m+[m[32m0.1249420236 -0.1500000437[m
+[32m+[m[32m0.1235243203 -0.1500000437[m
+[32m+[m[32m0.1221066171 -0.1500000437[m
+[32m+[m[32m0.1206889138 -0.1500000437[m
+[32m+[m[32m0.1192712106 -0.1500000437[m
+[32m+[m[32m0.1178535073 -0.1500000437[m
+[32m+[m[32m0.1164358040 -0.1500000437[m
+[32m+[m[32m0.1150181008 -0.1500000437[m
+[32m+[m[32m0.1136003975 -0.1500000437[m
+[32m+[m[32m0.1121826943 -0.1500000437[m
+[32m+[m[32m0.1107649910 -0.1500000437[m
+[32m+[m[32m0.1093472878 -0.1500000437[m
+[32m+[m[32m0.1079295845 -0.1500000437[m
+[32m+[m[32m0.1065118812 -0.1500000437[m
+[32m+[m[32m0.1050941780 -0.1500000437[m
+[32m+[m[32m0.1036764747 -0.1500000437[m
+[32m+[m[32m0.1022587715 -0.1500000437[m
+[32m+[m[32m0.1008410682 -0.1500000437[m
+[32m+[m[32m0.0994233650 -0.1500000437[m
+[32m+[m[32m0.0980056617 -0.1500000437[m
+[32m+[m[32m0.0965879585 -0.1500000437[m
+[32m+[m[32m0.0951702552 -0.1500000437[m
+[32m+[m[32m0.0937525519 -0.1500000437[m
+[32m+[m[32m0.0923348487 -0.1500000437[m
+[32m+[m[32m0.0909171454 -0.1500000437[m
+[32m+[m[32m0.0894994422 -0.1500000437[m
+[32m+[m[32m0.0880817389 -0.1500000437[m
+[32m+[m[32m0.0866640357 -0.1500000437[m
+[32m+[m[32m0.0852463324 -0.1500000437[m
+[32m+[m[32m0.0838286291 -0.1500000437[m
+[32m+[m[32m0.0824109259 -0.1500000437[m
+[32m+[m[32m0.0809932226 -0.1500000437[m
+[32m+[m[32m0.0795755194 -0.1500000437[m
+[32m+[m[32m0.0781578161 -0.1500000437[m
+[32m+[m[32m0.0767401129 -0.1500000437[m
+[32m+[m[32m0.0753224096 -0.1500000437[m
+[32m+[m[32m0.0739047064 -0.1500000437[m
+[32m+[m[32m0.0724870031 -0.1500000437[m
+[32m+[m[32m0.0710692998 -0.1500000437[m
+[32m+[m[32m0.0696515966 -0.1500000437[m
+[32m+[m[32m0.0682338933 -0.1500000437[m
+[32m+[m[32m0.0668161901 -0.1500000437[m
+[32m+[m[32m0.0653984868 -0.1500000437[m
+[32m+[m[32m0.0639807836 -0.1500000437[m
+[32m+[m[32m0.0625630803 -0.1500000437[m
+[32m+[m[32m0.0611453770 -0.1500000437[m
+[32m+[m[32m0.0597276738 -0.1500000437[m
+[32m+[m[32m0.0583099705 -0.1500000437[m
+[32m+[m[32m0.0568922673 -0.1500000437[m
+[32m+[m[32m0.0554745640 -0.1500000437[m
+[32m+[m[32m0.0540568608 -0.1500000437[m
+[32m+[m[32m0.0526391575 -0.1500000437[m
+[32m+[m[32m0.0512214543 -0.1500000437[m
+[32m+[m[32m0.0498037510 -0.1500000437[m
+[32m+[m[32m0.0483860477 -0.1500000437[m
+[32m+[m[32m0.0469683445 -0.1500000437[m
+[32m+[m[32m0.0455506412 -0.1500000437[m
+[32m+[m[32m0.0441329380 -0.1500000437[m
+[32m+[m[32m0.0427152347 -0.1500000437[m
+[32m+[m[32m0.0412975315 -0.1500000437[m
+[32m+[m[32m0.0398798282 -0.1500000437[m
+[32m+[m[32m0.0384621249 -0.1500000437[m
+[32m+[m[32m0.0370444217 -0.1500000437[m
+[32m+[m[32m0.0356267184 -0.1500000437[m
+[32m+[m[32m0.0342090152 -0.1500000437[m
+[32m+[m[32m0.0327913119 -0.1500000437[m
+[32m+[m[32m0.0313736087 -0.1500000437[m
+[32m+[m[32m0.0299559054 -0.1500000437[m
+[32m+[m[32m0.0285382021 -0.1500000437[m
+[32m+[m[32m0.0271204989 -0.1500000437[m
+[32m+[m[32m0.0257027956 -0.1500000437[m
+[32m+[m[32m0.0242850924 -0.1500000437[m
+[32m+[m[32m0.0228673891 -0.1500000437[m
+[32m+[m[32m0.0214496859 -0.1500000437[m
+[32m+[m[32m0.0200319826 -0.1500000437[m
+[32m+[m[32m0.0186142794 -0.1500000437[m
+[32m+[m[32m0.0171965761 -0.1500000437[m
+[32m+[m[32m0.0157788728 -0.1500000437[m
+[32m+[m[32m0.0143611696 -0.1500000437[m
+[32m+[m[32m0.0129434663 -0.1500000437[m
+[32m+[m[32m0.0115257631 -0.1500000437[m
+[32m+[m[32m0.0101080598 -0.1500000437[m
+[32m+[m[32m0.0086903566 -0.1500000437[m
+[32m+[m[32m0.0072726533 -0.1500000437[m
+[32m+[m[32m0.0058549500 -0.1500000437[m
+[32m+[m[32m0.0044372468 -0.1500000437[m
+[32m+[m[32m0.0030195435 -0.1500000437[m
+[32m+[m[32m0.0016018403 -0.1500000437[m
+[32m+[m[32m0.0001841370 -0.1500000437[m
+[32m+[m[32m-0.0012335662 -0.1500000437[m
+[32m+[m[32m-0.0026512695 -0.1500000437[m
+[32m+[m[32m-0.0040689727 -0.1500000437[m
+[32m+[m[32m-0.0054866760 -0.1500000437[m
+[32m+[m[32m-0.0069043793 -0.1500000437[m
+[32m+[m[32m-0.0083220825 -0.1500000437[m
+[32m+[m[32m-0.0097397858 -0.1500000437[m
+[32m+[m[32m-0.0111574890 -0.1500000437[m
+[32m+[m[32m-0.0125751923 -0.1500000437[m
+[32m+[m[32m-0.0139928955 -0.1500000437[m
+[32m+[m[32m-0.0154105988 -0.1500000437[m
+[32m+[m[32m-0.0168283021 -0.1500000437[m
+[32m+[m[32m-0.0182460053 -0.1500000437[m
+[32m+[m[32m-0.0196637086 -0.1500000437[m
+[32m+[m[32m-0.0210814118 -0.1500000437[m
+[32m+[m[32m-0.0224991151 -0.1500000437[m
+[32m+[m[32m-0.0239168183 -0.1500000437[m
+[32m+[m[32m-0.0253345216 -0.1500000437[m
+[32m+[m[32m-0.0267522248 -0.1500000437[m
+[32m+[m[32m-0.0281699281 -0.1500000437[m
+[32m+[m[32m-0.0295876314 -0.1500000437[m
+[32m+[m[32m-0.0310053346 -0.1500000437[m
+[32m+[m[32m-0.0324230379 -0.1500000437[m
+[32m+[m[32m-0.0338407411 -0.1500000437[m
+[32m+[m[32m-0.0352584444 -0.1500000437[m
+[32m+[m[32m-0.0366761476 -0.1500000437[m
+[32m+[m[32m-0.0380938509 -0.1500000437[m
+[32m+[m[32m-0.0395115542 -0.1500000437[m
+[32m+[m[32m-0.0409292574 -0.1500000437[m
+[32m+[m[32m-0.0423469607 -0.1500000437[m
+[32m+[m[32m-0.0437646639 -0.1500000437[m
+[32m+[m[32m-0.0451823672 -0.1500000437[m
+[32m+[m[32m-0.0466000704 -0.1500000437[m
+[32m+[m[32m-0.0480177737 -0.1500000437[m
+[32m+[m[32m-0.0494354770 -0.1500000437[m
+[32m+[m[32m-0.0508531802 -0.1500000437[m
+[32m+[m[32m-0.0522708835 -0.1500000437[m
+[32m+[m[32m-0.0536885867 -0.1500000437[m
+[32m+[m[32m-0.0551062900 -0.1500000437[m
+[32m+[m[32m-0.0565239932 -0.1500000437[m
+[32m+[m[32m-0.0579416965 -0.1500000437[m
+[32m+[m[32m-0.0593593997 -0.1500000437[m
+[32m+[m[32m-0.0607771030 -0.1500000437[m
+[32m+[m[32m-0.0621948063 -0.1500000437[m
+[32m+[m[32m-0.0636125095 -0.1500000437[m
+[32m+[m[32m-0.0650302128 -0.1500000437[m
+[32m+[m[32m-0.0664479160 -0.1500000437[m
+[32m+[m[32m-0.0678656193 -0.1500000437[m
+[32m+[m[32m-0.0692833225 -0.1500000437[m
+[32m+[m[32m-0.0707010258 -0.1500000437[m
+[32m+[m[32m-0.0721187291 -0.1500000437[m
+[32m+[m[32m-0.0735364323 -0.1500000437[m
+[32m+[m[32m-0.0749541356 -0.1500000437[m
+[32m+[m[32m-0.0763718388 -0.1500000437[m
+[32m+[m[32m-0.0777895421 -0.1500000437[m
+[32m+[m[32m-0.0792072453 -0.1500000437[m
+[32m+[m[32m-0.0806249486 -0.1500000437[m
+[32m+[m[32m-0.0820426518 -0.1500000437[m
+[32m+[m[32m-0.0834603551 -0.1500000437[m
+[32m+[m[32m-0.0848780584 -0.1500000437[m
+[32m+[m[32m-0.0862957616 -0.1500000437[m
+[32m+[m[32m-0.0877134649 -0.1500000437[m
+[32m+[m[32m-0.0891311681 -0.1500000437[m
+[32m+[m[32m-0.0905488714 -0.1500000437[m
+[32m+[m[32m-0.0919665746 -0.1500000437[m
+[32m+[m[32m-0.0933842779 -0.1500000437[m
+[32m+[m[32m-0.0948019812 -0.1500000437[m
+[32m+[m[32m-0.0962196844 -0.1500000437[m
+[32m+[m[32m-0.0976373877 -0.1500000437[m
+[32m+[m[32m-0.0990550909 -0.1500000437[m
+[32m+[m[32m-0.1004727942 -0.1500000437[m
+[32m+[m[32m-0.1018904974 -0.1500000437[m
+[32m+[m[32m-0.1033082007 -0.1500000437[m
+[32m+[m[32m-0.1047259040 -0.1500000437[m
+[32m+[m[32m-0.1061436072 -0.1500000437[m
+[32m+[m[32m-0.1075613105 -0.1500000437[m
+[32m+[m[32m-0.1089790137 -0.1500000437[m
+[32m+[m[32m-0.1103967170 -0.1500000437[m
+[32m+[m[32m-0.1118144202 -0.1500000437[m
+[32m+[m[32m-0.1132321235 -0.1500000437[m
+[32m+[m[32m-0.1146498267 -0.1500000437[m
+[32m+[m[32m-0.1160675300 -0.1500000437[m
+[32m+[m[32m-0.1174852333 -0.1500000437[m
+[32m+[m[32m-0.1189029365 -0.1500000437[m
+[32m+[m[32m-0.1203206398 -0.1500000437[m
+[32m+[m[32m-0.1217383430 -0.1500000437[m
+[32m+[m[32m-0.1231560463 -0.1500000437[m
+[32m+[m[32m-0.1245737495 -0.1500000437[m
+[32m+[m[32m-0.1259914528 -0.1500000437[m
+[32m+[m[32m-0.1274091561 -0.1500000437[m
+[32m+[m[32m-0.1288268593 -0.1500000437[m
+[32m+[m[32m-0.1302445626 -0.1500000437[m
+[32m+[m[32m-0.1316622658 -0.1500000437[m
+[32m+[m[32m-0.1330799691 -0.1500000437[m
+[32m+[m[32m-0.1344976723 -0.1500000437[m
+[32m+[m[32m-0.1359153756 -0.1500000437[m
+[32m+[m[32m-0.1373330788 -0.1500000437[m
+[32m+[m[32m-0.1387507821 -0.1500000437[m
+[32m+[m[32m-0.1401684854 -0.1500000437[m
+[32m+[m[32m-0.1415861886 -0.1500000437[m
+[32m+[m[32m-0.1430038919 -0.1500000437[m
+[32m+[m[32m-0.1444215951 -0.1500000437[m
+[32m+[m[32m-0.1458392984 -0.1500000437[m
+[32m+[m[32m-0.1472570016 -0.1500000437[m
+[32m+[m[32m-0.1486747049 -0.1500000437[m
+[32m+[m[32m-0.1500924082 -0.1500000437[m
+[32m+[m[32m-0.1515101114 -0.1500000437[m
+[32m+[m[32m-0.1529278147 -0.1500000437[m
+[32m+[m[32m-0.1543455179 -0.1500000437[m
+[32m+[m[32m-0.1557632212 -0.1500000437[m
+[32m+[m[32m-0.1571809244 -0.1500000437[m
+[32m+[m[32m-0.1585986277 -0.1500000437[m
+[32m+[m[32m-0.1600163309 -0.1500000437[m
+[32m+[m[32m-0.1614340342 -0.1500000437[m
+[32m+[m[32m-0.1628517375 -0.1500000437[m
+[32m+[m[32m-0.1642694407 -0.1500000437[m
+[32m+[m[32m-0.1656871440 -0.1500000437[m
+[32m+[m[32m-0.1671048472 -0.1500000437[m
+[32m+[m[32m-0.1685225505 -0.1500000437[m
+[32m+[m[32m-0.1699402537 -0.1500000437[m
+[32m+[m[32m-0.1713579570 -0.1500000437[m
+[32m+[m[32m-0.1727756603 -0.1500000437[m
+[32m+[m[32m-0.1741933635 -0.1500000437[m
+[32m+[m[32m-0.1756110668 -0.1500000437[m
+[32m+[m[32m-0.1770287700 -0.1500000437[m
+[32m+[m[32m-0.1784464733 -0.1500000437[m
+[32m+[m[32m-0.1798641765 -0.1500000437[m
+[32m+[m[32m-0.1812818798 -0.1500000437[m
+[32m+[m[32m-0.1826995831 -0.1500000437[m
+[32m+[m[32m-0.1841172863 -0.1500000437[m
+[32m+[m[32m-0.1855349896 -0.1500000437[m
+[32m+[m[32m-0.1869526928 -0.1500000437[m
+[32m+[m[32m-0.1883703961 -0.1500000437[m
+[32m+[m[32m-0.1897880993 -0.1500000437[m
+[32m+[m[32m-0.1912058026 -0.1500000437[m
+[32m+[m[32m-0.1926235058 -0.1500000437[m
+[32m+[m[32m-0.1940412091 -0.1500000437[m
+[32m+[m[32m-0.1954589124 -0.1500000437[m
+[32m+[m[32m-0.1968766156 -0.1500000437[m
+[32m+[m[32m-0.1982943189 -0.1500000437[m
+[32m+[m[32m-0.1997120221 -0.1500000437[m
+[32m+[m[32m-0.2011297254 -0.1500000437[m
+[32m+[m[32m-0.2025474286 -0.1500000437[m
+[32m+[m[32m-0.2039651319 -0.1500000437[m
+[32m+[m[32m-0.2053828352 -0.1500000437[m
+[32m+[m[32m-0.2068005384 -0.1500000437[m
+[32m+[m[32m-0.2082182417 -0.1500000437[m
+[32m+[m[32m-0.2096359449 -0.1500000437[m
+[32m+[m[32m-0.2110536482 -0.1500000437[m
+[32m+[m[32m-0.2124713514 -0.1500000437[m
+[32m+[m[32m-0.2138890547 -0.1500000437[m
+[32m+[m[32m-0.2153067579 -0.1500000437[m
+[32m+[m[32m-0.2167244612 -0.1500000437[m
+[32m+[m[32m-0.2181421645 -0.1500000437[m
+[32m+[m[32m-0.2195598677 -0.1500000437[m
+[32m+[m[32m-0.2209775710 -0.1500000437[m
+[32m+[m[32m-0.2223952742 -0.1500000437[m
+[32m+[m[32m-0.2238129775 -0.1500000437[m
+[32m+[m[32m-0.2252306807 -0.1500000437[m
+[32m+[m[32m-0.2266483840 -0.1500000437[m
+[32m+[m[32m-0.2280660873 -0.1500000437[m
+[32m+[m[32m-0.2294837905 -0.1500000437[m
+[32m+[m[32m-0.2309014938 -0.1500000437[m
+[32m+[m[32m-0.2323191970 -0.1500000437[m
+[32m+[m[32m-0.2337369003 -0.1500000437[m
+[32m+[m[32m-0.2351546035 -0.1500000437[m
+[32m+[m[32m-0.2365723068 -0.1500000437[m
+[32m+[m[32m-0.2379900100 -0.1500000437[m
+[32m+[m[32m-0.2394077133 -0.1500000437[m
+[32m+[m[32m-0.2408254166 -0.1500000437[m
+[32m+[m[32m-0.2422431198 -0.1500000437[m
+[32m+[m[32m-0.2436608231 -0.1500000437[m
+[32m+[m[32m-0.2450785263 -0.1500000437[m
+[32m+[m[32m-0.2464962296 -0.1500000437[m
+[32m+[m[32m-0.2479139328 -0.1500000437[m
+[32m+[m[32m-0.2493316361 -0.1500000437[m
+[32m+[m[32m-0.2499999880 -0.1492506924[m
+[32m+[m[32m-0.2499999880 -0.1478329892[m
+[32m+[m[32m-0.2499999880 -0.1464152859[m
+[32m+[m[32m-0.2499999880 -0.1449975827[m
+[32m+[m[32m-0.2499999880 -0.1435798794[m
+[32m+[m[32m-0.2499999880 -0.1421621761[m
+[32m+[m[32m-0.2499999880 -0.1407444729[m
+[32m+[m[32m-0.2499999880 -0.1393267696[m
+[32m+[m[32m-0.2499999880 -0.1379090664[m
+[32m+[m[32m-0.2499999880 -0.1364913631[m
+[32m+[m[32m-0.2499999880 -0.1350736599[m
+[32m+[m[32m-0.2499999880 -0.1336559566[m
+[32m+[m[32m-0.2499999880 -0.1322382533[m
+[32m+[m[32m-0.2499999880 -0.1308205501[m
+[32m+[m[32m-0.2499999880 -0.1294028468[m
+[32m+[m[32m-0.2499999880 -0.1279851436[m
+[32m+[m[32m-0.2499999880 -0.1265674403[m
+[32m+[m[32m-0.2499999880 -0.1251497371[m
+[32m+[m[32m-0.2499999880 -0.1237320338[m
+[32m+[m[32m-0.2499999880 -0.1223143306[m
+[32m+[m[32m-0.2499999880 -0.1208966273[m
+[32m+[m[32m-0.2499999880 -0.1194789240[m
+[32m+[m[32m-0.2499999880 -0.1180612208[m
+[32m+[m[32m-0.2499999880 -0.1166435175[m
+[32m+[m[32m-0.2499999880 -0.1152258143[m
+[32m+[m[32m-0.2499999880 -0.1138081110[m
+[32m+[m[32m-0.2499999880 -0.1123904078[m
+[32m+[m[32m-0.2499999880 -0.1109727045[m
+[32m+[m[32m-0.2499999880 -0.1095550012[m
+[32m+[m[32m-0.2499999880 -0.1081372980[m
+[32m+[m[32m-0.2499999880 -0.1067195947[m
+[32m+[m[32m-0.2499999880 -0.1053018915[m
+[32m+[m[32m-0.2499999880 -0.1038841882[m
+[32m+[m[32m-0.2499999880 -0.1024664850[m
+[32m+[m[32m-0.2499999880 -0.1010487817[m
+[32m+[m[32m-0.2499999880 -0.0996310785[m
+[32m+[m[32m-0.2499999880 -0.0982133752[m
+[32m+[m[32m-0.2499999880 -0.0967956719[m
+[32m+[m[32m-0.2499999880 -0.0953779687[m
+[32m+[m[32m-0.2499999880 -0.0939602654[m
+[32m+[m[32m-0.2499999880 -0.0925425622[m
+[32m+[m[32m-0.2499999880 -0.0911248589[m
+[32m+[m[32m-0.2499999880 -0.0897071557[m
+[32m+[m[32m-0.2499999880 -0.0882894524[m
+[32m+[m[32m-0.2499999880 -0.0868717491[m
+[32m+[m[32m-0.2499999880 -0.0854540459[m
+[32m+[m[32m-0.2499999880 -0.0840363426[m
+[32m+[m[32m-0.2499999880 -0.0826186394[m
+[32m+[m[32m-0.2499999880 -0.0812009361[m
+[32m+[m[32m-0.2499999880 -0.0797832329[m
+[32m+[m[32m-0.2499999880 -0.0783655296[m
+[32m+[m[32m-0.2499999880 -0.0769478264[m
+[32m+[m[32m-0.2499999880 -0.0755301231[m
+[32m+[m[32m-0.2499999880 -0.0741124198[m
+[32m+[m[32m-0.2499999880 -0.0726947166[m
+[32m+[m[32m-0.2499999880 -0.0712770133[m
+[32m+[m[32m-0.2499999880 -0.0698593101[m
+[32m+[m[32m-0.2499999880 -0.0684416068[m
+[32m+[m[32m-0.2499999880 -0.0670239036[m
+[32m+[m[32m-0.2499999880 -0.0656062003[m
+[32m+[m[32m-0.2499999880 -0.0641884970[m
+[32m+[m[32m-0.2499999880 -0.0627707938[m
+[32m+[m[32m-0.2499999880 -0.0613530905[m
+[32m+[m[32m-0.2499999880 -0.0599353873[m
+[32m+[m[32m-0.2499999880 -0.0585176840[m
+[32m+[m[32m-0.2499999880 -0.0570999808[m
+[32m+[m[32m-0.2499999880 -0.0556822775[m
+[32m+[m[32m-0.2499999880 -0.0542645742[m
+[32m+[m[32m-0.2499999880 -0.0528468710[m
+[32m+[m[32m-0.2499999880 -0.0514291677[m
+[32m+[m[32m-0.2499999880 -0.0500114645[m
+[32m+[m[32m-0.2499999880 -0.0485937612[m
+[32m+[m[32m-0.2499999880 -0.0471760580[m
+[32m+[m[32m-0.2499999880 -0.0457583547[m
+[32m+[m[32m-0.2499999880 -0.0443406515[m
+[32m+[m[32m-0.2499999880 -0.0429229482[m
+[32m+[m[32m-0.2499999880 -0.0415052449[m
+[32m+[m[32m-0.2499999880 -0.0400875417[m
+[32m+[m[32m-0.2499999880 -0.0386698384[m
+[32m+[m[32m-0.2499999880 -0.0372521352[m
+[32m+[m[32m-0.2499999880 -0.0358344319[m
+[32m+[m[32m-0.2499999880 -0.0344167287[m
+[32m+[m[32m-0.2499999880 -0.0329990254[m
+[32m+[m[32m-0.2499999880 -0.0315813221[m
+[32m+[m[32m-0.2499999880 -0.0301636189[m
+[32m+[m[32m-0.2499999880 -0.0287459156[m
+[32m+[m[32m-0.2499999880 -0.0273282124[m
+[32m+[m[32m-0.2499999880 -0.0259105091[m
+[32m+[m[32m-0.2499999880 -0.0244928059[m
+[32m+[m[32m-0.2499999880 -0.0230751026[m
+[32m+[m[32m-0.2499999880 -0.0216573994[m
+[32m+[m[32m-0.2499999880 -0.0202396961[m
+[32m+[m[32m-0.2499999880 -0.0188219928[m
+[32m+[m[32m-0.2499999880 -0.0174042896[m
+[32m+[m[32m-0.2499999880 -0.0159865863[m
+[32m+[m[32m-0.2499999880 -0.0145688831[m
+[32m+[m[32m-0.2499999880 -0.0131511798[m
+[32m+[m[32m-0.2499999880 -0.0117334766[m
+[32m+[m[32m-0.2499999880 -0.0103157733[m
+[32m+[m[32m-0.2499999880 -0.0088980700[m
+[32m+[m[32m-0.2499999880 -0.0074803668[m
+[32m+[m[32m-0.2499999880 -0.0060626635[m
+[32m+[m[32m-0.2499999880 -0.0046449603[m
+[32m+[m[32m-0.2499999880 -0.0032272570[m
+[32m+[m[32m-0.2499999880 -0.0018095538[m
+[32m+[m[32m-0.2499999880 -0.0003918505[m
+[32m+[m[32m-0.2499999880 0.0010258527[m
+[32m+[m[32m-0.2499999880 0.0024435560[m
+[32m+[m[32m-0.2499999880 0.0038612593[m
+[32m+[m[32m-0.2499999880 0.0052789625[m
+[32m+[m[32m-0.2499999880 0.0066966658[m
+[32m+[m[32m-0.2499999880 0.0081143690[m
+[32m+[m[32m-0.2499999880 0.0095320723[m
+[32m+[m[32m-0.2499999880 0.0109497755[m
+[32m+[m[32m-0.2499999880 0.0123674788[m
+[32m+[m[32m-0.2499999880 0.0137851821[m
+[32m+[m[32m-0.2499999880 0.0152028853[m
+[32m+[m[32m-0.2499999880 0.0166205886[m
+[32m+[m[32m-0.2499999880 0.0180382918[m
+[32m+[m[32m-0.2499999880 0.0194559951[m
+[32m+[m[32m-0.2499999880 0.0208736983[m
+[32m+[m[32m-0.2499999880 0.0222914016[m
+[32m+[m[32m-0.2499999880 0.0237091049[m
+[32m+[m[32m-0.2499999880 0.0251268081[m
+[32m+[m[32m-0.2499999880 0.0265445114[m
+[32m+[m[32m-0.2499999880 0.0279622146[m
+[32m+[m[32m-0.2499999880 0.0293799179[m
+[32m+[m[32m-0.2499999880 0.0307976211[m
+[32m+[m[32m-0.2499999880 0.0322153244[m
+[32m+[m[32m-0.2499999880 0.0336330276[m
+[32m+[m[32m-0.2499999880 0.0350507309[m
+[32m+[m[32m-0.2499999880 0.0364684342[m
+[32m+[m[32m-0.2499999880 0.0378861374[m
+[32m+[m[32m-0.2499999880 0.0393038407[m
+[32m+[m[32m-0.2499999880 0.0407215439[m
+[32m+[m[32m-0.2499999880 0.0421392472[m
+[32m+[m[32m-0.2499999880 0.0435569504[m
+[32m+[m[32m-0.2499999880 0.0449746537[m
+[32m+[m[32m-0.2499999880 0.0463923570[m
+[32m+[m[32m-0.2499999880 0.0478100602[m
+[32m+[m[32m-0.2499999880 0.0492277635[m
+[32m+[m[32m-0.2499999880 0.0506454667[m
+[32m+[m[32m-0.2499999880 0.0520631700[m
+[32m+[m[32m-0.2499999880 0.0534808732[m
+[32m+[m[32m-0.2499999880 0.0548985765[m
+[32m+[m[32m-0.2499999880 0.0563162797[m
+[32m+[m[32m-0.2499999880 0.0577339830[m
+[32m+[m[32m-0.2499999880 0.0591516863[m
+[32m+[m[32m-0.2499999880 0.0605693895[m
+[32m+[m[32m-0.2499999880 0.0619870928[m
+[32m+[m[32m-0.2499999880 0.0634047960[m
+[32m+[m[32m-0.2499999880 0.0648224993[m
+[32m+[m[32m-0.2499999880 0.0662402025[m
+[32m+[m[32m-0.2499999880 0.0676579058[m
+[32m+[m[32m-0.2499999880 0.0690756091[m
+[32m+[m[32m-0.2499999880 0.0704933123[m
+[32m+[m[32m-0.2499999880 0.0719110156[m
+[32m+[m[32m-0.2499999880 0.0733287188[m
+[32m+[m[32m-0.2499999880 0.0747464221[m
+[32m+[m[32m-0.2499999880 0.0761641253[m
+[32m+[m[32m-0.2499999880 0.0775818286[m
+[32m+[m[32m-0.2499999880 0.0789995319[m
+[32m+[m[32m-0.2499999880 0.0804172351[m
+[32m+[m[32m-0.2499999880 0.0818349384[m
+[32m+[m[32m-0.2499999880 0.0832526416[m
+[32m+[m[32m-0.2499999880 0.0846703449[m
+[32m+[m[32m-0.2499999880 0.0860880481[m
+[32m+[m[32m-0.2499999880 0.0875057514[m
+[32m+[m[32m-0.2499999880 0.0889234546[m
+[32m+[m[32m-0.2499999880 0.0903411579[m
+[32m+[m[32m-0.2499999880 0.0917588612[m
+[32m+[m[32m-0.2499999880 0.0931765644[m
+[32m+[m[32m-0.2499999880 0.0945942677[m
+[32m+[m[32m-0.2499999880 0.0960119709[m
+[32m+[m[32m-0.2499999880 0.0974296742[m
+[32m+[m[32m-0.2499999880 0.0988473774[m
+[32m+[m[32m-0.2499999880 0.1002650807[m
+[32m+[m[32m-0.2499999880 0.1016827840[m
+[32m+[m[32m-0.2499999880 0.1031004872[m
+[32m+[m[32m-0.2499999880 0.1045181905[m
+[32m+[m[32m-0.2499999880 0.1059358937[m
+[32m+[m[32m-0.2499999880 0.1073535970[m
+[32m+[m[32m-0.2499999880 0.1087713002[m
+[32m+[m[32m-0.2499999880 0.1101890035[m
+[32m+[m[32m-0.2499999880 0.1116067067[m
+[32m+[m[32m-0.2499999880 0.1130244100[m
+[32m+[m[32m-0.2499999880 0.1144421133[m
+[32m+[m[32m-0.2499999880 0.1158598165[m
+[32m+[m[32m-0.2499999880 0.1172775198[m
+[32m+[m[32m-0.2499999880 0.1186952230[m
+[32m+[m[32m-0.2499999880 0.1201129263[m
+[32m+[m[32m-0.2499999880 0.1215306295[m
+[32m+[m[32m-0.2499999880 0.1229483328[m
+[32m+[m[32m-0.2499999880 0.1243660361[m
+[32m+[m[32m-0.2499999880 0.1257837393[m
+[32m+[m[32m-0.2499999880 0.1272014426[m
+[32m+[m[32m-0.2499999880 0.1286191458[m
+[32m+[m[32m-0.2499999880 0.1300368491[m
+[32m+[m[32m-0.2499999880 0.1314545523[m
+[32m+[m[32m-0.2499999880 0.1328722556[m
+[32m+[m[32m-0.2499999880 0.1342899588[m
+[32m+[m[32m-0.2499999880 0.1357076621[m
+[32m+[m[32m-0.2499999880 0.1371253654[m
+[32m+[m[32m-0.2499999880 0.1385430686[m
+[32m+[m[32m-0.2499999880 0.1399607719[m
+[32m+[m[32m-0.2499999880 0.1413784751[m
+[32m+[m[32m-0.2499999880 0.1427961784[m
+[32m+[m[32m-0.2499999880 0.1442138816[m
+[32m+[m[32m-0.2499999880 0.1456315849[m
+[32m+[m[32m-0.2499999880 0.1470492882[m
+[32m+[m[32m-0.2499999880 0.1484669914[m
+[32m+[m[32m-0.2499999880 0.1498846947[m
+[32m+[m[32m-0.2499999880 0.1513023979[m
+[32m+[m[32m-0.2499999880 0.1527201012[m
+[32m+[m[32m-0.2499999880 0.1541378044[m
+[32m+[m[32m-0.2499999880 0.1555555077[m
+[32m+[m[32m-0.2499999880 0.1569732110[m
+[32m+[m[32m-0.2499999880 0.1583909142[m
+[32m+[m[32m-0.2499999880 0.1598086175[m
+[32m+[m[32m-0.2499999880 0.1612263207[m
+[32m+[m[32m-0.2499999880 0.1626440240[m
+[32m+[m[32m-0.2499999880 0.1640617272[m
+[32m+[m[32m-0.2499999880 0.1654794305[m
+[32m+[m[32m-0.2499999880 0.1668971337[m
+[32m+[m[32m-0.2499999880 0.1683148370[m
+[32m+[m[32m-0.2499999880 0.1697325403[m
+[32m+[m[32m-0.2499999880 0.1711502435[m
+[32m+[m[32m-0.2499999880 0.1725679468[m
+[32m+[m[32m-0.2499999880 0.1739856500[m
+[32m+[m[32m-0.2499999880 0.1754033533[m
+[32m+[m[32m-0.2499999880 0.1768210565[m
+[32m+[m[32m-0.2499999880 0.1782387598[m
+[32m+[m[32m-0.2499999880 0.1796564631[m
+[32m+[m[32m-0.2499999880 0.1810741663[m
+[32m+[m[32m-0.2499999880 0.1824918696[m
+[32m+[m[32m-0.2499999880 0.1839095728[m
+[32m+[m[32m-0.2499999880 0.1853272761[m
+[32m+[m[32m-0.2499999880 0.1867449793[m
+[32m+[m[32m-0.2499999880 0.1881626826[m
+[32m+[m[32m-0.2499999880 0.1895803858[m
+[32m+[m[32m-0.2499999880 0.1909980891[m
+[32m+[m[32m-0.2499999880 0.1924157924[m
+[32m+[m[32m-0.2499999880 0.1938334956[m
+[32m+[m[32m-0.2499999880 0.1952511989[m
+[32m+[m[32m-0.2499999880 0.1966689021[m
+[32m+[m[32m-0.2499999880 0.1980866054[m
+[32m+[m[32m-0.2499999880 0.1995043086[m
+[32m+[m[32m-0.2499999880 0.2009220119[m
+[32m+[m[32m-0.2499999880 0.2023397152[m
+[32m+[m[32m-0.2499999880 0.2037574184[m
+[32m+[m[32m-0.2499999880 0.2051751217[m
+[32m+[m[32m-0.2499999880 0.2065928249[m
+[32m+[m[32m-0.2499999880 0.2080105282[m
+[32m+[m[32m-0.2499999880 0.2094282314[m
+[32m+[m[32m-0.2499999880 0.2108459347[m
+[32m+[m[32m-0.2499999880 0.2122636379[m
+[32m+[m[32m-0.2499999880 0.2136813412[m
+[32m+[m[32m-0.2499999880 0.2150990445[m
+[32m+[m[32m-0.2499999880 0.2165167477[m
+[32m+[m[32m-0.2499999880 0.2179344510[m
+[32m+[m[32m-0.2499999880 0.2193521542[m
+[32m+[m[32m-0.2499999880 0.2207698575[m
+[32m+[m[32m-0.2499999880 0.2221875607[m
+[32m+[m[32m-0.2499999880 0.2236052640[m
+[32m+[m[32m-0.2499999880 0.2250229673[m
+[32m+[m[32m-0.2499999880 0.2264406705[m
+[32m+[m[32m-0.2499999880 0.2278583738[m
+[32m+[m[32m-0.2499999880 0.2292760770[m
+[32m+[m[32m-0.2499999880 0.2306937803[m
+[32m+[m[32m-0.2499999880 0.2321114835[m
+[32m+[m[32m-0.2499999880 0.2335291868[m
+[32m+[m[32m-0.2499999880 0.2349468901[m
+[32m+[m[32m-0.2499999880 0.2363645933[m
+[32m+[m[32m-0.2499999880 0.2377822966[m
+[32m+[m[32m-0.2499999880 0.2391999998[m
+[32m+[m[32m-0.2499999880 0.2406177031[m
+[32m+[m[32m-0.2499999880 0.2420354063[m
+[32m+[m[32m-0.2499999880 0.2434531096[m
+[32m+[m[32m-0.2499999880 0.2448708128[m
+[32m+[m[32m-0.2499999880 0.2462885161[m
+[32m+[m[32m-0.2499999880 0.2477062194[m
+[32m+[m[32m-0.2499999880 0.2491239226[m
+[32m+[m[32m-0.2499999880 0.2505416259[m
+[32m+[m[32m-0.2499999880 0.2519593291[m
+[32m+[m[32m-0.2499999880 0.2533770324[m
+[32m+[m[32m-0.2499999880 0.2547947356[m
+[32m+[m[32m-0.2499999880 0.2562124389[m
+[32m+[m[32m-0.2499999880 0.2576301422[m
+[32m+[m[32m-0.2499999880 0.2590478454[m
+[32m+[m[32m-0.2499999880 0.2604655487[m
+[32m+[m[32m-0.2499999880 0.2618832519[m
+[32m+[m[32m-0.2499999880 0.2633009552[m
+[32m+[m[32m-0.2499999880 0.2647186584[m
+[32m+[m[32m-0.2499999880 0.2661363617[m
+[32m+[m[32m-0.2499999880 0.2675540649[m
+[32m+[m[32m-0.2499999880 0.2689717682[m
+[32m+[m[32m-0.2499999880 0.2703894715[m
+[32m+[m[32m-0.2499999880 0.2718071747[m
+[32m+[m[32m-0.2499999880 0.2732248780[m
+[32m+[m[32m-0.2499999880 0.2746425812[m
+[32m+[m[32m-0.2499999880 0.2760602845[m
+[32m+[m[32m-0.2499999880 0.2774779877[m
+[32m+[m[32m-0.2499999880 0.2788956910[m
+[32m+[m[32m-0.2499999880 0.2803133943[m
+[32m+[m[32m-0.2499999880 0.2817310975[m
+[32m+[m[32m-0.2499999880 0.2831488008[m
+[32m+[m[32m-0.2499999880 0.2845665040[m
+[32m+[m[32m-0.2499999880 0.2859842073[m
+[32m+[m[32m-0.2499999880 0.2874019105[m
+[32m+[m[32m-0.2499999880 0.2888196138[m
+[32m+[m[32m-0.2499999880 0.2902373170[m
+[32m+[m[32m-0.2499999880 0.2916550203[m
+[32m+[m[32m-0.2499999880 0.2930727236[m
+[32m+[m[32m-0.2499999880 0.2944904268[m
+[32m+[m[32m-0.2499999880 0.2959081301[m
+[32m+[m[32m-0.2499999880 0.2973258333[m
+[32m+[m[32m-0.2499999880 0.2987435366[m
+[32m+[m[32m-0.2499999880 0.3001612398[m
+[32m+[m[32m-0.2499999880 0.3015789431[m
+[32m+[m[32m-0.2499999880 0.3029966464[m
+[32m+[m[32m-0.2499999880 0.3044143496[m
+[32m+[m[32m-0.2499999880 0.3058320529[m
+[32m+[m[32m-0.2499999880 0.3072497561[m
+[32m+[m[32m-0.2499999880 0.3086674594[m
+[32m+[m[32m-0.2499999880 0.3100851626[m
+[32m+[m[32m-0.2499999880 0.3115028659[m
+[32m+[m[32m-0.2499999880 0.3129205692[m
+[32m+[m[32m-0.2499999880 0.3143382724[m
+[32m+[m[32m-0.2499999880 0.3157559757[m
+[32m+[m[32m-0.2499999880 0.3171736789[m
+[32m+[m[32m-0.2499999880 0.3185913822[m
+[32m+[m[32m-0.2499999880 0.3200090854[m
+[32m+[m[32m-0.2499999880 0.3214267887[m
+[32m+[m[32m-0.2499999880 0.3228444919[m
+[32m+[m[32m-0.2499999880 0.3242621952[m
+[32m+[m[32m-0.2499999880 0.3256798985[m
+[32m+[m[32m-0.2499999880 0.3270976017[m
+[32m+[m[32m-0.2499999880 0.3285153050[m
+[32m+[m[32m-0.2499999880 0.3299330082[m
+[32m+[m[32m-0.2499999880 0.3313507115[m
+[32m+[m[32m-0.2499999880 0.3327684147[m
+[32m+[m[32m-0.2499999880 0.3341861180[m
+[32m+[m[32m-0.2499999880 0.3356038213[m
+[32m+[m[32m-0.2499999880 0.3370215245[m
+[32m+[m[32m-0.2499999880 0.3384392278[m
+[32m+[m[32m-0.2499999880 0.3398569310[m
+[32m+[m[32m-0.2499999880 0.3412746343[m
+[32m+[m[32m-0.2499999880 0.3426923375[m
+[32m+[m[32m-0.2499999880 0.3441100408[m
+[32m+[m[32m-0.2499999880 0.3455277440[m
+[32m+[m[32m-0.2499999880 0.3469454473[m
+[32m+[m[32m-0.2499999880 0.3483631506[m
+[32m+[m[32m-0.2499999880 0.3497808538[m
+[32m+[m[32m-0.2488013872 0.3499999563[m
+[32m+[m[32m-0.2473836840 0.3499999563[m
+[32m+[m[32m-0.2459659807 0.3499999563[m
+[32m+[m[32m-0.2445482775 0.3499999563[m
+[32m+[m[32m-0.2431305742 0.3499999563[m
+[32m+[m[32m-0.2417128710 0.3499999563[m
+[32m+[m[32m-0.2402951677 0.3499999563[m
+[32m+[m[32m-0.2388774644 0.3499999563[m
+[32m+[m[32m-0.2374597612 0.3499999563[m
+[32m+[m[32m-0.2360420579 0.3499999563[m
+[32m+[m[32m-0.2346243547 0.3499999563[m
+[32m+[m[32m-0.2332066514 0.3499999563[m
+[32m+[m[32m-0.2317889482 0.3499999563[m
+[32m+[m[32m-0.2303712449 0.3499999563[m
+[32m+[m[32m-0.2289535417 0.3499999563[m
+[32m+[m[32m-0.2275358384 0.3499999563[m
+[32m+[m[32m-0.2261181351 0.3499999563[m
+[32m+[m[32m-0.2247004319 0.3499999563[m
+[32m+[m[32m-0.2232827286 0.3499999563[m
+[32m+[m[32m-0.2218650254 0.3499999563[m
+[32m+[m[32m-0.2204473221 0.3499999563[m
+[32m+[m[32m-0.2190296189 0.3499999563[m
+[32m+[m[32m-0.2176119156 0.3499999563[m
+[32m+[m[32m-0.2161942123 0.3499999563[m
+[32m+[m[32m-0.2147765091 0.3499999563[m
+[32m+[m[32m-0.2133588058 0.3499999563[m
+[32m+[m[32m-0.2119411026 0.3499999563[m
+[32m+[m[32m-0.2105233993 0.3499999563[m
+[32m+[m[32m-0.2091056961 0.3499999563[m
+[32m+[m[32m-0.2076879928 0.3499999563[m
+[32m+[m[32m-0.2062702896 0.3499999563[m
+[32m+[m[32m-0.2048525863 0.3499999563[m
+[32m+[m[32m-0.2034348830 0.3499999563[m
+[32m+[m[32m-0.2026861096 0.3489970844[m
+[32m+[m[32m-0.2021409686 0.3476883813[m
+[32m+[m[32m-0.2015952337 0.3463799258[m
+[32m+[m[32m-0.2010488750 0.3450717306[m
+[32m+[m[32m-0.2005018626 0.3437638086[m
+[32m+[m[32m-0.1999541659 0.3424561730[m
+[32m+[m[32m-0.1994057530 0.3411488377[m
+[32m+[m[32m-0.1988565899 0.3398418173[m
+[32m+[m[32m-0.1983066403 0.3385351276[m
+[32m+[m[32m-0.1977558650 0.3372287857[m
+[32m+[m[32m-0.1972042208 0.3359228105[m
+[32m+[m[32m-0.1966516607 0.3346172227[m
+[32m+[m[32m-0.1960981327 0.3333120448[m
+[32m+[m[32m-0.1955435797 0.3320073022[m
+[32m+[m[32m-0.1949879385 0.3307030226[m
+[32m+[m[32m-0.1944311396 0.3293992368[m
+[32m+[m[32m-0.1938731064 0.3280959788[m
+[32m+[m[32m-0.1933137549 0.3267932862[m
+[32m+[m[32m-0.1927529928 0.3254912000[m
+[32m+[m[32m-0.1921907194 0.3241897659[m
+[32m+[m[32m-0.1916268244 0.3228890335[m
+[32m+[m[32m-0.1910611880 0.3215890575[m
+[32m+[m[32m-0.1904936797 0.3202898976[m
+[32m+[m[32m-0.1899241567 0.3189916196[m
+[32m+[m[32m-0.1893524625 0.3176942964[m
+[32m+[m[32m-0.1887784250 0.3163980082[m
+[32m+[m[32m-0.1882018552 0.3151028445[m
+[32m+[m[32m-0.1876225456 0.3138089040[m
+[32m+[m[32m-0.1870402683 0.3125162962[m
+[32m+[m[32m-0.1864547732 0.3112251429[m
+[32m+[m[32m-0.1858657804 0.3099355815[m
+[32m+[m[32m-0.1852729687 0.3086477713[m
+[32m+[m[32m-0.1846759627 0.3073619002[m
+[32m+[m[32m-0.1840743208 0.3060781919[m
+[32m+[m[32m-0.1834675225 0.3047969131[m
+[32m+[m[32m-0.1828549570 0.3035183818[m
+[32m+[m[32m-0.1822359114 0.3022429759[m
+[32m+[m[32m-0.1816095594 0.3009711428[m
+[32m+[m[32m-0.1811243928 0.2996678830[m
+[32m+[m[32m-0.1811243928 0.2982501798[m
+[32m+[m[32m-0.1811243928 0.2968324765[m
+[32m+[m[32m-0.1811243928 0.2954147733[m
+[32m+[m[32m-0.1811243928 0.2939970700[m
+[32m+[m[32m-0.1811243928 0.2925793668[m
+[32m+[m[32m-0.1811243928 0.2911616635[m
+[32m+[m[32m-0.1811243928 0.2897439602[m
+[32m+[m[32m-0.1811243928 0.2883262570[m
+[32m+[m[32m-0.1811243928 0.2869085537[m
+[32m+[m[32m-0.1811243928 0.2854908505[m
+[32m+[m[32m-0.1811243928 0.2840731472[m
+[32m+[m[32m-0.1811243928 0.2826554440[m
+[32m+[m[32m-0.1811243928 0.2812377407[m
+[32m+[m[32m-0.1811243928 0.2798200375[m
+[32m+[m[32m-0.1811243928 0.2784023342[m
+[32m+[m[32m-0.1811243928 0.2769846309[m
+[32m+[m[32m-0.1811243928 0.2755669277[m
+[32m+[m[32m-0.1811243928 0.2741492244[m
+[32m+[m[32m-0.1811243928 0.2727315212[m
+[32m+[m[32m-0.1811243928 0.2713138179[m
+[32m+[m[32m-0.1811243928 0.2698961147[m
+[32m+[m[32m-0.1811243928 0.2684784114[m
+[32m+[m[32m-0.1811243928 0.2670607081[m
+[32m+[m[32m-0.1811243928 0.2656430049[m
+[32m+[m[32m-0.1811243928 0.2642253016[m
+[32m+[m[32m-0.1811243928 0.2628075984[m
+[32m+[m[32m-0.1811243928 0.2613898951[m
+[32m+[m[32m-0.1811243928 0.2599721919[m
+[32m+[m[32m-0.1811243928 0.2585544886[m
+[32m+[m[32m-0.1811243928 0.2571367854[m
+[32m+[m[32m-0.1811243928 0.2557190821[m
+[32m+[m[32m-0.1811243928 0.2543013788[m
+[32m+[m[32m-0.1811243928 0.2528836756[m
+[32m+[m[32m-0.1811243928 0.2514659723[m
+[32m+[m[32m-0.1811243928 0.2500482691[m
+[32m+[m[32m-0.1811243928 0.2486305658[m
+[32m+[m[32m-0.1811243928 0.2472128626[m
+[32m+[m[32m-0.1811243928 0.2457951593[m
+[32m+[m[32m-0.1811243928 0.2443774560[m
+[32m+[m[32m-0.1811243928 0.2429597528[m
+[32m+[m[32m-0.1811243928 0.2415420495[m
+[32m+[m[32m-0.1811243928 0.2401243463[m
+[32m+[m[32m-0.1811243928 0.2387066430[m
+[32m+[m[32m-0.1811243928 0.2372889398[m
+[32m+[m[32m-0.1811243928 0.2358712365[m
+[32m+[m[32m-0.1811243928 0.2344535333[m
+[32m+[m[32m-0.1811243928 0.2330358300[m
+[32m+[m[32m-0.1811243928 0.2316181267[m
+[32m+[m[32m-0.1811243928 0.2302004235[m
+[32m+[m[32m-0.1811243928 0.2287827202[m
+[32m+[m[32m-0.1811243928 0.2273650170[m
+[32m+[m[32m-0.1811243928 0.2259473137[m
+[32m+[m[32m-0.1811243928 0.2245296105[m
+[32m+[m[32m-0.1811243928 0.2231119072[m
+[32m+[m[32m-0.1811243928 0.2216942039[m
+[32m+[m[32m-0.1811243928 0.2202765007[m
+[32m+[m[32m-0.1811243928 0.2188587974[m
+[32m+[m[32m-0.1811243928 0.2174410942[m
+[32m+[m[32m-0.1811243928 0.2160233909[m
+[32m+[m[32m-0.1811243928 0.2146056877[m
+[32m+[m[32m-0.1811243928 0.2131879844[m
+[32m+[m[32m-0.1811243928 0.2117702811[m
+[32m+[m[32m-0.1811243928 0.2103525779[m
+[32m+[m[32m-0.1811243928 0.2089348746[m
+[32m+[m[32m-0.1811243928 0.2075171714[m
+[32m+[m[32m-0.1811243928 0.2060994681[m
+[32m+[m[32m-0.1811243928 0.2046817649[m
+[32m+[m[32m-0.1811243928 0.2032640616[m
+[32m+[m[32m-0.1811243928 0.2018463584[m
+[32m+[m[32m-0.1811243928 0.2004286551[m
+[32m+[m[32m-0.1811243928 0.1990109518[m
+[32m+[m[32m-0.1811243928 0.1975932486[m
+[32m+[m[32m-0.1811243928 0.1961755453[m
+[32m+[m[32m-0.1811243928 0.1947578421[m
+[32m+[m[32m-0.1811243928 0.1933401388[m
+[32m+[m[32m-0.1811243928 0.1919224356[m
+[32m+[m[32m-0.1811243928 0.1905047323[m
+[32m+[m[32m-0.1811243928 0.1890870290[m
+[32m+[m[32m-0.1811243928 0.1876693258[m
+[32m+[m[32m-0.1811243928 0.1862516225[m
+[32m+[m[32m-0.1811243928 0.1848339193[m
+[32m+[m[32m-0.1811243928 0.1834162160[m
+[32m+[m[32m-0.1811243928 0.1819985128[m
+[32m+[m[32m-0.1811243928 0.1805808095[m
+[32m+[m[32m-0.1811243928 0.1791631063[m
+[32m+[m[32m-0.1811243928 0.1777454030[m
+[32m+[m[32m-0.1811243928 0.1763276997[m
+[32m+[m[32m-0.1811243928 0.1749099965[m
+[32m+[m[32m-0.1811243928 0.1734922932[m
+[32m+[m[32m-0.1811243928 0.1720745900[m
+[32m+[m[32m-0.1811243928 0.1706568867[m
+[32m+[m[32m-0.1811243928 0.1692391835[m
+[32m+[m[32m-0.1811243928 0.1678214802[m
+[32m+[m[32m-0.1811243928 0.1664037769[m
+[32m+[m[32m-0.1811243928 0.1649860737[m
+[32m+[m[32m-0.1811243928 0.1635683704[m
+[32m+[m[32m-0.1811243928 0.1621506672[m
+[32m+[m[32m-0.1811243928 0.1607329639[m
+[32m+[m[32m-0.1811243928 0.1593152607[m
+[32m+[m[32m-0.1811243928 0.1578975574[m
+[32m+[m[32m-0.1811243928 0.1564798542[m
+[32m+[m[32m-0.1811243928 0.1550621509[m
+[32m+[m[32m-0.1811243928 0.1536444476[m
+[32m+[m[32m-0.1811243928 0.1522267444[m
+[32m+[m[32m-0.1811243928 0.1508090411[m
+[32m+[m[32m-0.1811243928 0.1493913379[m
+[32m+[m[32m-0.1811243928 0.1479736346[m
+[32m+[m[32m-0.1811243928 0.1465559314[m
+[32m+[m[32m-0.1811243928 0.1451382281[m
+[32m+[m[32m-0.1811243928 0.1437205248[m
+[32m+[m[32m-0.1811243928 0.1423028216[m
+[32m+[m[32m-0.1811243928 0.1408851183[m
+[32m+[m[32m-0.1811243928 0.1394674151[m
+[32m+[m[32m-0.1811243928 0.1380497118[m
+[32m+[m[32m-0.1811243928 0.1366320086[m
+[32m+[m[32m-0.1811243928 0.1352143053[m
+[32m+[m[32m-0.1811243928 0.1337966020[m
+[32m+[m[32m-0.1811243928 0.1323788988[m
+[32m+[m[32m-0.1811243928 0.1309611955[m
+[32m+[m[32m-0.1811243928 0.1295434923[m
+[32m+[m[32m-0.1811243928 0.1281257890[m
+[32m+[m[32m-0.1811243928 0.1267080858[m
+[32m+[m[32m-0.1811243928 0.1252903825[m
+[32m+[m[32m-0.1811243928 0.1238726793[m
+[32m+[m[32m-0.1811243928 0.1224549760[m
+[32m+[m[32m-0.1811243928 0.1210372727[m
+[32m+[m[32m-0.1811243928 0.1196195695[m
+[32m+[m[32m-0.1811243928 0.1182018662[m
+[32m+[m[32m-0.1811243928 0.1167841630[m
+[32m+[m[32m-0.1811243928 0.1153664597[m
+[32m+[m[32m-0.1811243928 0.1139487565[m
+[32m+[m[32m-0.1811243928 0.1125310532[m
+[32m+[m[32m-0.1811243928 0.1111133499[m
+[32m+[m[32m-0.1811243928 0.1096956467[m
+[32m+[m[32m-0.1811243928 0.1082779434[m
+[32m+[m[32m-0.1811243928 0.1068602402[m
+[32m+[m[32m-0.1811243928 0.1054425369[m
+[32m+[m[32m-0.1811243928 0.1040248337[m
+[32m+[m[32m-0.1811243928 0.1026071304[m
+[32m+[m[32m-0.1811243928 0.1011894272[m
+[32m+[m[32m-0.1811243928 0.0997717239[m
+[32m+[m[32m-0.1811243928 0.0983540206[m
+[32m+[m[32m-0.1811243928 0.0969363174[m
+[32m+[m[32m-0.1811243928 0.0955186141[m
+[32m+[m[32m-0.1811243928 0.0941009109[m
+[32m+[m[32m-0.1811243928 0.0926832076[m
+[32m+[m[32m-0.1811243928 0.0912655044[m
+[32m+[m[32m-0.1811243928 0.0898478011[m
+[32m+[m[32m-0.1811243928 0.0884300978[m
+[32m+[m[32m-0.1811243928 0.0870123946[m
+[32m+[m[32m-0.1811243928 0.0855946913[m
+[32m+[m[32m-0.1811243928 0.0841769881[m
+[32m+[m[32m-0.1811243928 0.0827592848[m
+[32m+[m[32m-0.1811243928 0.0813415816[m
+[32m+[m[32m-0.1811243928 0.0799238783[m
+[32m+[m[32m-0.1811243928 0.0785061751[m
+[32m+[m[32m-0.1811243928 0.0770884718[m
+[32m+[m[32m-0.1811243928 0.0756707685[m
+[32m+[m[32m-0.1811243928 0.0742530653[m
+[32m+[m[32m-0.1811243928 0.0728353620[m
+[32m+[m[32m-0.1811243928 0.0714176588[m
+[32m+[m[32m-0.1811243928 0.0699999563[m
+[1mdiff --git a/project/project/simulation_2d/pointset_m_2.dat b/project/project/simulation_2d/pointset_m_2.dat[m
+[1mnew file mode 100644[m
+[1mindex 00000000..5055b994[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/simulation_2d/pointset_m_2.dat[m
+[36m@@ -0,0 +1,1000 @@[m
+[32m+[m[32m-0.0199999880 0.3499999563[m
+[32m+[m[32m-0.0199999880 0.3491303294[m
+[32m+[m[32m-0.0199999880 0.3482607025[m
+[32m+[m[32m-0.0199999880 0.3473910756[m
+[32m+[m[32m-0.0199999880 0.3465214487[m
+[32m+[m[32m-0.0199999880 0.3456518218[m
+[32m+[m[32m-0.0199999880 0.3447821948[m
+[32m+[m[32m-0.0199999880 0.3439125679[m
+[32m+[m[32m-0.0199999880 0.3430429410[m
+[32m+[m[32m-0.0199999880 0.3421733141[m
+[32m+[m[32m-0.0199999880 0.3413036872[m
+[32m+[m[32m-0.0199999880 0.3404340603[m
+[32m+[m[32m-0.0199999880 0.3395644334[m
+[32m+[m[32m-0.0199999880 0.3386948065[m
+[32m+[m[32m-0.0199999880 0.3378251796[m
+[32m+[m[32m-0.0199999880 0.3369555527[m
+[32m+[m[32m-0.0199999880 0.3360859258[m
+[32m+[m[32m-0.0199999880 0.3352162989[m
+[32m+[m[32m-0.0199999880 0.3343466720[m
+[32m+[m[32m-0.0199999880 0.3334770451[m
+[32m+[m[32m-0.0199999880 0.3326074182[m
+[32m+[m[32m-0.0199999880 0.3317377913[m
+[32m+[m[32m-0.0199999880 0.3308681644[m
+[32m+[m[32m-0.0199999880 0.3299985375[m
+[32m+[m[32m-0.0199999880 0.3291289106[m
+[32m+[m[32m-0.0199999880 0.3282592837[m
+[32m+[m[32m-0.0199999880 0.3273896568[m
+[32m+[m[32m-0.0199999880 0.3265200299[m
+[32m+[m[32m-0.0199999880 0.3256504030[m
+[32m+[m[32m-0.0199999880 0.3247807761[m
+[32m+[m[32m-0.0199999880 0.3239111492[m
+[32m+[m[32m-0.0199999880 0.3230415223[m
+[32m+[m[32m-0.0199999880 0.3221718954[m
+[32m+[m[32m-0.0199999880 0.3213022685[m
+[32m+[m[32m-0.0199999880 0.3204326416[m
+[32m+[m[32m-0.0199999880 0.3195630147[m
+[32m+[m[32m-0.0199999880 0.3186933878[m
+[32m+[m[32m-0.0199999880 0.3178237609[m
+[32m+[m[32m-0.0199999880 0.3169541340[m
+[32m+[m[32m-0.0199999880 0.3160845071[m
+[32m+[m[32m-0.0199999880 0.3152148802[m
+[32m+[m[32m-0.0199999880 0.3143452532[m
+[32m+[m[32m-0.0199999880 0.3134756263[m
+[32m+[m[32m-0.0199999880 0.3126059994[m
+[32m+[m[32m-0.0199999880 0.3117363725[m
+[32m+[m[32m-0.0199999880 0.3108667456[m
+[32m+[m[32m-0.0199999880 0.3099971187[m
+[32m+[m[32m-0.0199999880 0.3091274918[m
+[32m+[m[32m-0.0199999880 0.3082578649[m
+[32m+[m[32m-0.0199999880 0.3073882380[m
+[32m+[m[32m-0.0199999880 0.3065186111[m
+[32m+[m[32m-0.0199999880 0.3056489842[m
+[32m+[m[32m-0.0199999880 0.3047793573[m
+[32m+[m[32m-0.0199999880 0.3039097304[m
+[32m+[m[32m-0.0199999880 0.3030401035[m
+[32m+[m[32m-0.0199999880 0.3021704766[m
+[32m+[m[32m-0.0199999880 0.3013008497[m
+[32m+[m[32m-0.0199999880 0.3004312228[m
+[32m+[m[32m-0.0199999880 0.2995615959[m
+[32m+[m[32m-0.0199999880 0.2986919690[m
+[32m+[m[32m-0.0199999880 0.2978223421[m
+[32m+[m[32m-0.0199999880 0.2969527152[m
+[32m+[m[32m-0.0199999880 0.2960830883[m
+[32m+[m[32m-0.0199999880 0.2952134614[m
+[32m+[m[32m-0.0199999880 0.2943438345[m
+[32m+[m[32m-0.0199999880 0.2934742076[m
+[32m+[m[32m-0.0199999880 0.2926045807[m
+[32m+[m[32m-0.0199999880 0.2917349538[m
+[32m+[m[32m-0.0199999880 0.2908653269[m
+[32m+[m[32m-0.0199999880 0.2899957000[m
+[32m+[m[32m-0.0199999880 0.2891260731[m
+[32m+[m[32m-0.0199999880 0.2882564462[m
+[32m+[m[32m-0.0199999880 0.2873868193[m
+[32m+[m[32m-0.0199999880 0.2865171924[m
+[32m+[m[32m-0.0199999880 0.2856475655[m
+[32m+[m[32m-0.0199999880 0.2847779386[m
+[32m+[m[32m-0.0199999880 0.2839083116[m
+[32m+[m[32m-0.0199999880 0.2830386847[m
+[32m+[m[32m-0.0199999880 0.2821690578[m
+[32m+[m[32m-0.0199999880 0.2812994309[m
+[32m+[m[32m-0.0199999880 0.2804298040[m
+[32m+[m[32m-0.0199999880 0.2795601771[m
+[32m+[m[32m-0.0199999880 0.2786905502[m
+[32m+[m[32m-0.0199999880 0.2778209233[m
+[32m+[m[32m-0.0199999880 0.2769512964[m
+[32m+[m[32m-0.0199999880 0.2760816695[m
+[32m+[m[32m-0.0199999880 0.2752120426[m
+[32m+[m[32m-0.0199999880 0.2743424157[m
+[32m+[m[32m-0.0199999880 0.2734727888[m
+[32m+[m[32m-0.0199999880 0.2726031619[m
+[32m+[m[32m-0.0199999880 0.2717335350[m
+[32m+[m[32m-0.0199999880 0.2708639081[m
+[32m+[m[32m-0.0199999880 0.2699942812[m
+[32m+[m[32m-0.0199999880 0.2691246543[m
+[32m+[m[32m-0.0199999880 0.2682550274[m
+[32m+[m[32m-0.0199999880 0.2673854005[m
+[32m+[m[32m-0.0199999880 0.2665157736[m
+[32m+[m[32m-0.0199999880 0.2656461467[m
+[32m+[m[32m-0.0199999880 0.2647765198[m
+[32m+[m[32m-0.0199999880 0.2639068929[m
+[32m+[m[32m-0.0199999880 0.2630372660[m
+[32m+[m[32m-0.0199999880 0.2621676391[m
+[32m+[m[32m-0.0199999880 0.2612980122[m
+[32m+[m[32m-0.0199999880 0.2604283853[m
+[32m+[m[32m-0.0199999880 0.2595587584[m
+[32m+[m[32m-0.0199999880 0.2586891315[m
+[32m+[m[32m-0.0199999880 0.2578195046[m
+[32m+[m[32m-0.0199999880 0.2569498777[m
+[32m+[m[32m-0.0199999880 0.2560802508[m
+[32m+[m[32m-0.0199999880 0.2552106239[m
+[32m+[m[32m-0.0199999880 0.2543409970[m
+[32m+[m[32m-0.0199999880 0.2534713700[m
+[32m+[m[32m-0.0199999880 0.2526017431[m
+[32m+[m[32m-0.0199999880 0.2517321162[m
+[32m+[m[32m-0.0199999880 0.2508624893[m
+[32m+[m[32m-0.0199949720 0.2499949402[m
+[32m+[m[32m-0.0193800529 0.2493800211[m
+[32m+[m[32m-0.0187651338 0.2487651020[m
+[32m+[m[32m-0.0181502147 0.2481501829[m
+[32m+[m[32m-0.0175352956 0.2475352639[m
+[32m+[m[32m-0.0169203766 0.2469203448[m
+[32m+[m[32m-0.0163054575 0.2463054257[m
+[32m+[m[32m-0.0156905384 0.2456905066[m
+[32m+[m[32m-0.0150756193 0.2450755875[m
+[32m+[m[32m-0.0144607002 0.2444606685[m
+[32m+[m[32m-0.0138457812 0.2438457494[m
+[32m+[m[32m-0.0132308621 0.2432308303[m
+[32m+[m[32m-0.0126159430 0.2426159112[m
+[32m+[m[32m-0.0120010239 0.2420009921[m
+[32m+[m[32m-0.0113861048 0.2413860730[m
+[32m+[m[32m-0.0107711858 0.2407711540[m
+[32m+[m[32m-0.0101562667 0.2401562349[m
+[32m+[m[32m-0.0099999880 0.2393513407[m
+[32m+[m[32m-0.0099999880 0.2384817138[m
+[32m+[m[32m-0.0099999880 0.2376120869[m
+[32m+[m[32m-0.0099999880 0.2367424600[m
+[32m+[m[32m-0.0099999880 0.2358728331[m
+[32m+[m[32m-0.0099999880 0.2350032062[m
+[32m+[m[32m-0.0099999880 0.2341335793[m
+[32m+[m[32m-0.0099999880 0.2332639524[m
+[32m+[m[32m-0.0099999880 0.2323943255[m
+[32m+[m[32m-0.0099999880 0.2315246986[m
+[32m+[m[32m-0.0099999880 0.2306550717[m
+[32m+[m[32m-0.0099999880 0.2297854448[m
+[32m+[m[32m-0.0099999880 0.2289158179[m
+[32m+[m[32m-0.0099999880 0.2280461910[m
+[32m+[m[32m-0.0099999880 0.2271765641[m
+[32m+[m[32m-0.0099999880 0.2263069372[m
+[32m+[m[32m-0.0099999880 0.2254373103[m
+[32m+[m[32m-0.0099999880 0.2245676834[m
+[32m+[m[32m-0.0099999880 0.2236980565[m
+[32m+[m[32m-0.0099999880 0.2228284296[m
+[32m+[m[32m-0.0099999880 0.2219588027[m
+[32m+[m[32m-0.0099999880 0.2210891758[m
+[32m+[m[32m-0.0099999880 0.2202195488[m
+[32m+[m[32m-0.0099999880 0.2193499219[m
+[32m+[m[32m-0.0099999880 0.2184802950[m
+[32m+[m[32m-0.0099999880 0.2176106681[m
+[32m+[m[32m-0.0099999880 0.2167410412[m
+[32m+[m[32m-0.0099999880 0.2158714143[m
+[32m+[m[32m-0.0099999880 0.2150017874[m
+[32m+[m[32m-0.0099999880 0.2141321605[m
+[32m+[m[32m-0.0099999880 0.2132625336[m
+[32m+[m[32m-0.0099999880 0.2123929067[m
+[32m+[m[32m-0.0099999880 0.2115232798[m
+[32m+[m[32m-0.0099999880 0.2106536529[m
+[32m+[m[32m-0.0099999880 0.2097840260[m
+[32m+[m[32m-0.0099999880 0.2089143991[m
+[32m+[m[32m-0.0099999880 0.2080447722[m
+[32m+[m[32m-0.0099999880 0.2071751453[m
+[32m+[m[32m-0.0099999880 0.2063055184[m
+[32m+[m[32m-0.0099999880 0.2054358915[m
+[32m+[m[32m-0.0099999880 0.2045662646[m
+[32m+[m[32m-0.0099999880 0.2036966377[m
+[32m+[m[32m-0.0099999880 0.2028270108[m
+[32m+[m[32m-0.0099999880 0.2019573839[m
+[32m+[m[32m-0.0099999880 0.2010877570[m
+[32m+[m[32m-0.0099999880 0.2002181301[m
+[32m+[m[32m-0.0106514411 0.1999999563[m
+[32m+[m[32m-0.0115210680 0.1999999563[m
+[32m+[m[32m-0.0123906949 0.1999999563[m
+[32m+[m[32m-0.0132603218 0.1999999563[m
+[32m+[m[32m-0.0141299487 0.1999999563[m
+[32m+[m[32m-0.0149995756 0.1999999563[m
+[32m+[m[32m-0.0158692026 0.1999999563[m
+[32m+[m[32m-0.0167388295 0.1999999563[m
+[32m+[m[32m-0.0176084564 0.1999999563[m
+[32m+[m[32m-0.0184780833 0.1999999563[m
+[32m+[m[32m-0.0193477102 0.1999999563[m
+[32m+[m[32m-0.0202173371 0.1999999563[m
+[32m+[m[32m-0.0210869640 0.1999999563[m
+[32m+[m[32m-0.0219565909 0.1999999563[m
+[32m+[m[32m-0.0228262178 0.1999999563[m
+[32m+[m[32m-0.0236958447 0.1999999563[m
+[32m+[m[32m-0.0245654716 0.1999999563[m
+[32m+[m[32m-0.0254350985 0.1999999563[m
+[32m+[m[32m-0.0263047254 0.1999999563[m
+[32m+[m[32m-0.0271743523 0.1999999563[m
+[32m+[m[32m-0.0280439792 0.1999999563[m
+[32m+[m[32m-0.0289136061 0.1999999563[m
+[32m+[m[32m-0.0297832330 0.1999999563[m
+[32m+[m[32m-0.0306528599 0.1999999563[m
+[32m+[m[32m-0.0315224868 0.1999999563[m
+[32m+[m[32m-0.0323921137 0.1999999563[m
+[32m+[m[32m-0.0332617406 0.1999999563[m
+[32m+[m[32m-0.0341313675 0.1999999563[m
+[32m+[m[32m-0.0350009944 0.1999999563[m
+[32m+[m[32m-0.0358706213 0.1999999563[m
+[32m+[m[32m-0.0367402482 0.1999999563[m
+[32m+[m[32m-0.0376098751 0.1999999563[m
+[32m+[m[32m-0.0384795020 0.1999999563[m
+[32m+[m[32m-0.0393491289 0.1999999563[m
+[32m+[m[32m-0.0402187558 0.1999999563[m
+[32m+[m[32m-0.0410883827 0.1999999563[m
+[32m+[m[32m-0.0419580096 0.1999999563[m
+[32m+[m[32m-0.0428276365 0.1999999563[m
+[32m+[m[32m-0.0436972634 0.1999999563[m
+[32m+[m[32m-0.0445668903 0.1999999563[m
+[32m+[m[32m-0.0454365172 0.1999999563[m
+[32m+[m[32m-0.0463061442 0.1999999563[m
+[32m+[m[32m-0.0471757711 0.1999999563[m
+[32m+[m[32m-0.0480453980 0.1999999563[m
+[32m+[m[32m-0.0489150249 0.1999999563[m
+[32m+[m[32m-0.0497846518 0.1999999563[m
+[32m+[m[32m-0.0506542787 0.1999999563[m
+[32m+[m[32m-0.0515239056 0.1999999563[m
+[32m+[m[32m-0.0523935325 0.1999999563[m
+[32m+[m[32m-0.0532631594 0.1999999563[m
+[32m+[m[32m-0.0541327863 0.1999999563[m
+[32m+[m[32m-0.0550024132 0.1999999563[m
+[32m+[m[32m-0.0558720401 0.1999999563[m
+[32m+[m[32m-0.0567416670 0.1999999563[m
+[32m+[m[32m-0.0576112939 0.1999999563[m
+[32m+[m[32m-0.0584809208 0.1999999563[m
+[32m+[m[32m-0.0593505477 0.1999999563[m
+[32m+[m[32m-0.0602201746 0.1999999563[m
+[32m+[m[32m-0.0610898015 0.1999999563[m
+[32m+[m[32m-0.0619594284 0.1999999563[m
+[32m+[m[32m-0.0628290553 0.1999999563[m
+[32m+[m[32m-0.0636986822 0.1999999563[m
+[32m+[m[32m-0.0645683091 0.1999999563[m
+[32m+[m[32m-0.0654379360 0.1999999563[m
+[32m+[m[32m-0.0663075629 0.1999999563[m
+[32m+[m[32m-0.0671771898 0.1999999563[m
+[32m+[m[32m-0.0680468167 0.1999999563[m
+[32m+[m[32m-0.0689164436 0.1999999563[m
+[32m+[m[32m-0.0697860705 0.1999999563[m
+[32m+[m[32m-0.0706556974 0.1999999563[m
+[32m+[m[32m-0.0715253243 0.1999999563[m
+[32m+[m[32m-0.0723949512 0.1999999563[m
+[32m+[m[32m-0.0732645781 0.1999999563[m
+[32m+[m[32m-0.0741342050 0.1999999563[m
+[32m+[m[32m-0.0750038319 0.1999999563[m
+[32m+[m[32m-0.0758734588 0.1999999563[m
+[32m+[m[32m-0.0767430858 0.1999999563[m
+[32m+[m[32m-0.0776127127 0.1999999563[m
+[32m+[m[32m-0.0784823396 0.1999999563[m
+[32m+[m[32m-0.0793519665 0.1999999563[m
+[32m+[m[32m-0.0802215934 0.1999999563[m
+[32m+[m[32m-0.0810912203 0.1999999563[m
+[32m+[m[32m-0.0819608472 0.1999999563[m
+[32m+[m[32m-0.0828304741 0.1999999563[m
+[32m+[m[32m-0.0837001010 0.1999999563[m
+[32m+[m[32m-0.0845697279 0.1999999563[m
+[32m+[m[32m-0.0854393548 0.1999999563[m
+[32m+[m[32m-0.0863089817 0.1999999563[m
+[32m+[m[32m-0.0871786086 0.1999999563[m
+[32m+[m[32m-0.0880482355 0.1999999563[m
+[32m+[m[32m-0.0889178624 0.1999999563[m
+[32m+[m[32m-0.0897874893 0.1999999563[m
+[32m+[m[32m-0.0906571162 0.1999999563[m
+[32m+[m[32m-0.0915267431 0.1999999563[m
+[32m+[m[32m-0.0923963700 0.1999999563[m
+[32m+[m[32m-0.0932659969 0.1999999563[m
+[32m+[m[32m-0.0941356238 0.1999999563[m
+[32m+[m[32m-0.0950052507 0.1999999563[m
+[32m+[m[32m-0.0958748776 0.1999999563[m
+[32m+[m[32m-0.0967445045 0.1999999563[m
+[32m+[m[32m-0.0976141314 0.1999999563[m
+[32m+[m[32m-0.0984837583 0.1999999563[m
+[32m+[m[32m-0.0993533852 0.1999999563[m
+[32m+[m[32m-0.0999999880 0.1997769322[m
+[32m+[m[32m-0.0999999880 0.1989073053[m
+[32m+[m[32m-0.0999999880 0.1980376784[m
+[32m+[m[32m-0.0999999880 0.1971680515[m
+[32m+[m[32m-0.0999999880 0.1962984246[m
+[32m+[m[32m-0.0999999880 0.1954287977[m
+[32m+[m[32m-0.0999999880 0.1945591708[m
+[32m+[m[32m-0.0999999880 0.1936895439[m
+[32m+[m[32m-0.0999999880 0.1928199170[m
+[32m+[m[32m-0.0999999880 0.1919502901[m
+[32m+[m[32m-0.0999999880 0.1910806632[m
+[32m+[m[32m-0.0999999880 0.1902110363[m
+[32m+[m[32m-0.0999999880 0.1893414094[m
+[32m+[m[32m-0.0999999880 0.1884717824[m
+[32m+[m[32m-0.0999999880 0.1876021555[m
+[32m+[m[32m-0.0999999880 0.1867325286[m
+[32m+[m[32m-0.0999999880 0.1858629017[m
+[32m+[m[32m-0.0999999880 0.1849932748[m
+[32m+[m[32m-0.0999999880 0.1841236479[m
+[32m+[m[32m-0.0999999880 0.1832540210[m
+[32m+[m[32m-0.0999999880 0.1823843941[m
+[32m+[m[32m-0.0999999880 0.1815147672[m
+[32m+[m[32m-0.0999999880 0.1806451403[m
+[32m+[m[32m-0.0999999880 0.1797755134[m
+[32m+[m[32m-0.0999999880 0.1789058865[m
+[32m+[m[32m-0.0999999880 0.1780362596[m
+[32m+[m[32m-0.0999999880 0.1771666327[m
+[32m+[m[32m-0.0999999880 0.1762970058[m
+[32m+[m[32m-0.0999999880 0.1754273789[m
+[32m+[m[32m-0.0999999880 0.1745577520[m
+[32m+[m[32m-0.0999999880 0.1736881251[m
+[32m+[m[32m-0.0999999880 0.1728184982[m
+[32m+[m[32m-0.0999999880 0.1719488713[m
+[32m+[m[32m-0.0999999880 0.1710792444[m
+[32m+[m[32m-0.0999999880 0.1702096175[m
+[32m+[m[32m-0.0999999880 0.1693399906[m
+[32m+[m[32m-0.0999999880 0.1684703637[m
+[32m+[m[32m-0.0999999880 0.1676007368[m
+[32m+[m[32m-0.0999999880 0.1667311099[m
+[32m+[m[32m-0.0999999880 0.1658614830[m
+[32m+[m[32m-0.0999999880 0.1649918561[m
+[32m+[m[32m-0.0999999880 0.1641222292[m
+[32m+[m[32m-0.0999999880 0.1632526023[m
+[32m+[m[32m-0.0999999880 0.1623829754[m
+[32m+[m[32m-0.0999999880 0.1615133485[m
+[32m+[m[32m-0.0999999880 0.1606437216[m
+[32m+[m[32m-0.0999999880 0.1597740947[m
+[32m+[m[32m-0.0999999880 0.1589044678[m
+[32m+[m[32m-0.0999999880 0.1580348408[m
+[32m+[m[32m-0.0999999880 0.1571652139[m
+[32m+[m[32m-0.0999999880 0.1562955870[m
+[32m+[m[32m-0.0999999880 0.1554259601[m
+[32m+[m[32m-0.0999999880 0.1545563332[m
+[32m+[m[32m-0.0999999880 0.1536867063[m
+[32m+[m[32m-0.0999999880 0.1528170794[m
+[32m+[m[32m-0.0999999880 0.1519474525[m
+[32m+[m[32m-0.0999999880 0.1510778256[m
+[32m+[m[32m-0.0999999880 0.1502081987[m
+[32m+[m[32m-0.0999999880 0.1493385718[m
+[32m+[m[32m-0.0999999880 0.1484689449[m
+[32m+[m[32m-0.0999999880 0.1475993180[m
+[32m+[m[32m-0.0999999880 0.1467296911[m
+[32m+[m[32m-0.0999999880 0.1458600642[m
+[32m+[m[32m-0.0999999880 0.1449904373[m
+[32m+[m[32m-0.0999999880 0.1441208104[m
+[32m+[m[32m-0.0999999880 0.1432511835[m
+[32m+[m[32m-0.0999999880 0.1423815566[m
+[32m+[m[32m-0.0999999880 0.1415119297[m
+[32m+[m[32m-0.0999999880 0.1406423028[m
+[32m+[m[32m-0.0999999880 0.1397726759[m
+[32m+[m[32m-0.0999999880 0.1389030490[m
+[32m+[m[32m-0.0999999880 0.1380334221[m
+[32m+[m[32m-0.0999999880 0.1371637952[m
+[32m+[m[32m-0.0999999880 0.1362941683[m
+[32m+[m[32m-0.0999999880 0.1354245414[m
+[32m+[m[32m-0.0999999880 0.1345549145[m
+[32m+[m[32m-0.0999999880 0.1336852876[m
+[32m+[m[32m-0.0999999880 0.1328156607[m
+[32m+[m[32m-0.0999999880 0.1319460338[m
+[32m+[m[32m-0.0999999880 0.1310764069[m
+[32m+[m[32m-0.0999999880 0.1302067800[m
+[32m+[m[32m-0.0999999880 0.1293371531[m
+[32m+[m[32m-0.0999999880 0.1284675262[m
+[32m+[m[32m-0.0999999880 0.1275978992[m
+[32m+[m[32m-0.0999999880 0.1267282723[m
+[32m+[m[32m-0.0999999880 0.1258586454[m
+[32m+[m[32m-0.0999999880 0.1249890185[m
+[32m+[m[32m-0.0999999880 0.1241193916[m
+[32m+[m[32m-0.0999999880 0.1232497647[m
+[32m+[m[32m-0.0999999880 0.1223801378[m
+[32m+[m[32m-0.0999999880 0.1215105109[m
+[32m+[m[32m-0.0999999880 0.1206408840[m
+[32m+[m[32m-0.0999999880 0.1197712571[m
+[32m+[m[32m-0.0999999880 0.1189016302[m
+[32m+[m[32m-0.0999999880 0.1180320033[m
+[32m+[m[32m-0.0999999880 0.1171623764[m
+[32m+[m[32m-0.0999999880 0.1162927495[m
+[32m+[m[32m-0.0999999880 0.1154231226[m
+[32m+[m[32m-0.0999999880 0.1145534957[m
+[32m+[m[32m-0.0999999880 0.1136838688[m
+[32m+[m[32m-0.0999999880 0.1128142419[m
+[32m+[m[32m-0.0999999880 0.1119446150[m
+[32m+[m[32m-0.0999999880 0.1110749881[m
+[32m+[m[32m-0.0999999880 0.1102053612[m
+[32m+[m[32m-0.0999999880 0.1093357343[m
+[32m+[m[32m-0.0999999880 0.1084661074[m
+[32m+[m[32m-0.0999999880 0.1075964805[m
+[32m+[m[32m-0.0999999880 0.1067268536[m
+[32m+[m[32m-0.0999999880 0.1058572267[m
+[32m+[m[32m-0.0999999880 0.1049875998[m
+[32m+[m[32m-0.0999999880 0.1041179729[m
+[32m+[m[32m-0.0999999880 0.1032483460[m
+[32m+[m[32m-0.0999999880 0.1023787191[m
+[32m+[m[32m-0.0999999880 0.1015090922[m
+[32m+[m[32m-0.0999999880 0.1006394653[m
+[32m+[m[32m-0.0999999880 0.0997698384[m
+[32m+[m[32m-0.0999999880 0.0989002115[m
+[32m+[m[32m-0.0999999880 0.0980305846[m
+[32m+[m[32m-0.0999999880 0.0971609576[m
+[32m+[m[32m-0.0999999880 0.0962913307[m
+[32m+[m[32m-0.0999999880 0.0954217038[m
+[32m+[m[32m-0.0999999880 0.0945520769[m
+[32m+[m[32m-0.0999999880 0.0936824500[m
+[32m+[m[32m-0.0999999880 0.0928128231[m
+[32m+[m[32m-0.0999999880 0.0919431962[m
+[32m+[m[32m-0.0999999880 0.0910735693[m
+[32m+[m[32m-0.0999999880 0.0902039424[m
+[32m+[m[32m-0.0999999880 0.0893343155[m
+[32m+[m[32m-0.0999999880 0.0884646886[m
+[32m+[m[32m-0.0999999880 0.0875950617[m
+[32m+[m[32m-0.0999999880 0.0867254348[m
+[32m+[m[32m-0.0999999880 0.0858558079[m
+[32m+[m[32m-0.0999999880 0.0849861810[m
+[32m+[m[32m-0.0999999880 0.0841165541[m
+[32m+[m[32m-0.0999999880 0.0832469272[m
+[32m+[m[32m-0.0999999880 0.0823773003[m
+[32m+[m[32m-0.0999999880 0.0815076734[m
+[32m+[m[32m-0.0999999880 0.0806380465[m
+[32m+[m[32m-0.0999999880 0.0797684196[m
+[32m+[m[32m-0.0999999880 0.0788987927[m
+[32m+[m[32m-0.0999999880 0.0780291658[m
+[32m+[m[32m-0.0999999880 0.0771595389[m
+[32m+[m[32m-0.0999999880 0.0762899120[m
+[32m+[m[32m-0.0999999880 0.0754202851[m
+[32m+[m[32m-0.0999999880 0.0745506582[m
+[32m+[m[32m-0.0999999880 0.0736810313[m
+[32m+[m[32m-0.0999999880 0.0728114044[m
+[32m+[m[32m-0.0999999880 0.0719417775[m
+[32m+[m[32m-0.0999999880 0.0710721506[m
+[32m+[m[32m-0.0999999880 0.0702025237[m
+[32m+[m[32m-0.0999999880 0.0693328968[m
+[32m+[m[32m-0.0999999880 0.0684632699[m
+[32m+[m[32m-0.0999999880 0.0675936430[m
+[32m+[m[32m-0.0999999880 0.0667240160[m
+[32m+[m[32m-0.0999999880 0.0658543891[m
+[32m+[m[32m-0.0999999880 0.0649847622[m
+[32m+[m[32m-0.0999999880 0.0641151353[m
+[32m+[m[32m-0.0999999880 0.0632455084[m
+[32m+[m[32m-0.0999999880 0.0623758815[m
+[32m+[m[32m-0.0999999880 0.0615062546[m
+[32m+[m[32m-0.0999999880 0.0606366277[m
+[32m+[m[32m-0.0999999880 0.0597670008[m
+[32m+[m[32m-0.0999999880 0.0588973739[m
+[32m+[m[32m-0.0999999880 0.0580277470[m
+[32m+[m[32m-0.0999999880 0.0571581201[m
+[32m+[m[32m-0.0999999880 0.0562884932[m
+[32m+[m[32m-0.0999999880 0.0554188663[m
+[32m+[m[32m-0.0999999880 0.0545492394[m
+[32m+[m[32m-0.0999999880 0.0536796125[m
+[32m+[m[32m-0.0999999880 0.0528099856[m
+[32m+[m[32m-0.0999999880 0.0519403587[m
+[32m+[m[32m-0.0999999880 0.0510707318[m
+[32m+[m[32m-0.0999999880 0.0502011049[m
+[32m+[m[32m-0.0999999880 0.0493314780[m
+[32m+[m[32m-0.0999999880 0.0484618511[m
+[32m+[m[32m-0.0999999880 0.0475922242[m
+[32m+[m[32m-0.0999999880 0.0467225973[m
+[32m+[m[32m-0.0999999880 0.0458529704[m
+[32m+[m[32m-0.0999999880 0.0449833435[m
+[32m+[m[32m-0.0999999880 0.0441137166[m
+[32m+[m[32m-0.0999999880 0.0432440897[m
+[32m+[m[32m-0.1007498863 0.0431243610[m
+[32m+[m[32m-0.1016195132 0.0431243610[m
+[32m+[m[32m-0.1024891401 0.0431243610[m
+[32m+[m[32m-0.1033587670 0.0431243610[m
+[32m+[m[32m-0.1042283939 0.0431243610[m
+[32m+[m[32m-0.1050980208 0.0431243610[m
+[32m+[m[32m-0.1059676477 0.0431243610[m
+[32m+[m[32m-0.1068372746 0.0431243610[m
+[32m+[m[32m-0.1077069015 0.0431243610[m
+[32m+[m[32m-0.1085765284 0.0431243610[m
+[32m+[m[32m-0.1094461553 0.0431243610[m
+[32m+[m[32m-0.1103157822 0.0431243610[m
+[32m+[m[32m-0.1111854091 0.0431243610[m
+[32m+[m[32m-0.1120550360 0.0431243610[m
+[32m+[m[32m-0.1129246629 0.0431243610[m
+[32m+[m[32m-0.1137942898 0.0431243610[m
+[32m+[m[32m-0.1146639167 0.0431243610[m
+[32m+[m[32m-0.1155335436 0.0431243610[m
+[32m+[m[32m-0.1164031705 0.0431243610[m
+[32m+[m[32m-0.1172727975 0.0431243610[m
+[32m+[m[32m-0.1181424244 0.0431243610[m
+[32m+[m[32m-0.1190120513 0.0431243610[m
+[32m+[m[32m-0.1198816782 0.0431243610[m
+[32m+[m[32m-0.1207513051 0.0431243610[m
+[32m+[m[32m-0.1216209320 0.0431243610[m
+[32m+[m[32m-0.1224905589 0.0431243610[m
+[32m+[m[32m-0.1233601858 0.0431243610[m
+[32m+[m[32m-0.1242298127 0.0431243610[m
+[32m+[m[32m-0.1250994396 0.0431243610[m
+[32m+[m[32m-0.1259690665 0.0431243610[m
+[32m+[m[32m-0.1268386934 0.0431243610[m
+[32m+[m[32m-0.1277083203 0.0431243610[m
+[32m+[m[32m-0.1285778992 0.0431305752[m
+[32m+[m[32m-0.1294468708 0.0431633367[m
+[32m+[m[32m-0.1303143277 0.0432241939[m
+[32m+[m[32m-0.1311793616 0.0433130830[m
+[32m+[m[32m-0.1320410670 0.0434299111[m
+[32m+[m[32m-0.1328985417 0.0435745557[m
+[32m+[m[32m-0.1337508880 0.0437468656[m
+[32m+[m[32m-0.1345972137 0.0439466602[m
+[32m+[m[32m-0.1354366325 0.0441737305[m
+[32m+[m[32m-0.1362682659 0.0444278386[m
+[32m+[m[32m-0.1370912430 0.0447087186[m
+[32m+[m[32m-0.1379047024 0.0450160764[m
+[32m+[m[32m-0.1387077924 0.0453495902[m
+[32m+[m[32m-0.1394996722 0.0457089109[m
+[32m+[m[32m-0.1402795128 0.0460936623[m
+[32m+[m[32m-0.1410464977 0.0465034415[m
+[32m+[m[32m-0.1417998241 0.0469378197[m
+[32m+[m[32m-0.1425387032 0.0473963419[m
+[32m+[m[32m-0.1432623615 0.0478785282[m
+[32m+[m[32m-0.1439700413 0.0483838739[m
+[32m+[m[32m-0.1446610019 0.0489118497[m
+[32m+[m[32m-0.1453345197 0.0494619030[m
+[32m+[m[32m-0.1459898898 0.0500334580[m
+[32m+[m[32m-0.1466264260 0.0506259161[m
+[32m+[m[32m-0.1472434618 0.0512386573[m
+[32m+[m[32m-0.1478403513 0.0518710400[m
+[32m+[m[32m-0.1484164697 0.0525224021[m
+[32m+[m[32m-0.1489712137 0.0531920618[m
+[32m+[m[32m-0.1495040025 0.0538793179[m
+[32m+[m[32m-0.1500142785 0.0545834510[m
+[32m+[m[32m-0.1505015074 0.0553037239[m
+[32m+[m[32m-0.1509651791 0.0560393824[m
+[32m+[m[32m-0.1514048081 0.0567896566[m
+[32m+[m[32m-0.1518199343 0.0575537608[m
+[32m+[m[32m-0.1522101229 0.0583308951[m
+[32m+[m[32m-0.1525749656 0.0591202460[m
+[32m+[m[32m-0.1529140804 0.0599209870[m
+[32m+[m[32m-0.1532271122 0.0607322798[m
+[32m+[m[32m-0.1535137333 0.0615532751[m
+[32m+[m[32m-0.1537736437 0.0623831134[m
+[32m+[m[32m-0.1540065712 0.0632209259[m
+[32m+[m[32m-0.1542122720 0.0640658354[m
+[32m+[m[32m-0.1543905307 0.0649169575[m
+[32m+[m[32m-0.1545411608 0.0657734011[m
+[32m+[m[32m-0.1546640045 0.0666342694[m
+[32m+[m[32m-0.1547589332 0.0674986614[m
+[32m+[m[32m-0.1548258475 0.0683656721[m
+[32m+[m[32m-0.1548646774 0.0692343937[m
+[32m+[m[32m-0.1548755833 0.0701039170[m
+[32m+[m[32m-0.1548755833 0.0709735439[m
+[32m+[m[32m-0.1548755833 0.0718431708[m
+[32m+[m[32m-0.1548755833 0.0727127977[m
+[32m+[m[32m-0.1548755833 0.0735824246[m
+[32m+[m[32m-0.1548755833 0.0744520515[m
+[32m+[m[32m-0.1548755833 0.0753216784[m
+[32m+[m[32m-0.1548755833 0.0761913053[m
+[32m+[m[32m-0.1548755833 0.0770609322[m
+[32m+[m[32m-0.1548755833 0.0779305591[m
+[32m+[m[32m-0.1548755833 0.0788001860[m
+[32m+[m[32m-0.1548755833 0.0796698129[m
+[32m+[m[32m-0.1548755833 0.0805394398[m
+[32m+[m[32m-0.1548755833 0.0814090667[m
+[32m+[m[32m-0.1548755833 0.0822786936[m
+[32m+[m[32m-0.1548755833 0.0831483205[m
+[32m+[m[32m-0.1548755833 0.0840179474[m
+[32m+[m[32m-0.1548755833 0.0848875744[m
+[32m+[m[32m-0.1548755833 0.0857572013[m
+[32m+[m[32m-0.1548755833 0.0866268282[m
+[32m+[m[32m-0.1548755833 0.0874964551[m
+[32m+[m[32m-0.1548755833 0.0883660820[m
+[32m+[m[32m-0.1548755833 0.0892357089[m
+[32m+[m[32m-0.1548755833 0.0901053358[m
+[32m+[m[32m-0.1548755833 0.0909749627[m
+[32m+[m[32m-0.1548755833 0.0918445896[m
+[32m+[m[32m-0.1548755833 0.0927142165[m
+[32m+[m[32m-0.1548755833 0.0935838434[m
+[32m+[m[32m-0.1548755833 0.0944534703[m
+[32m+[m[32m-0.1548755833 0.0953230972[m
+[32m+[m[32m-0.1548755833 0.0961927241[m
+[32m+[m[32m-0.1548755833 0.0970623510[m
+[32m+[m[32m-0.1548755833 0.0979319779[m
+[32m+[m[32m-0.1548755833 0.0988016048[m
+[32m+[m[32m-0.1548755833 0.0996712317[m
+[32m+[m[32m-0.1548755833 0.1005408586[m
+[32m+[m[32m-0.1548755833 0.1014104855[m
+[32m+[m[32m-0.1548755833 0.1022801124[m
+[32m+[m[32m-0.1548755833 0.1031497393[m
+[32m+[m[32m-0.1548755833 0.1040193662[m
+[32m+[m[32m-0.1548755833 0.1048889931[m
+[32m+[m[32m-0.1548755833 0.1057586200[m
+[32m+[m[32m-0.1548755833 0.1066282469[m
+[32m+[m[32m-0.1548755833 0.1074978738[m
+[32m+[m[32m-0.1548755833 0.1083675007[m
+[32m+[m[32m-0.1548755833 0.1092371276[m
+[32m+[m[32m-0.1548755833 0.1101067545[m
+[32m+[m[32m-0.1548755833 0.1109763814[m
+[32m+[m[32m-0.1548755833 0.1118460083[m
+[32m+[m[32m-0.1548755833 0.1127156352[m
+[32m+[m[32m-0.1548755833 0.1135852621[m
+[32m+[m[32m-0.1548755833 0.1144548890[m
+[32m+[m[32m-0.1548755833 0.1153245160[m
+[32m+[m[32m-0.1548755833 0.1161941429[m
+[32m+[m[32m-0.1548755833 0.1170637698[m
+[32m+[m[32m-0.1548755833 0.1179333967[m
+[32m+[m[32m-0.1548755833 0.1188030236[m
+[32m+[m[32m-0.1548755833 0.1196726505[m
+[32m+[m[32m-0.1548755833 0.1205422774[m
+[32m+[m[32m-0.1548755833 0.1214119043[m
+[32m+[m[32m-0.1548755833 0.1222815312[m
+[32m+[m[32m-0.1548755833 0.1231511581[m
+[32m+[m[32m-0.1548755833 0.1240207850[m
+[32m+[m[32m-0.1548755833 0.1248904119[m
+[32m+[m[32m-0.1548755833 0.1257600388[m
+[32m+[m[32m-0.1548755833 0.1266296657[m
+[32m+[m[32m-0.1548755833 0.1274992926[m
+[32m+[m[32m-0.1548755833 0.1283689195[m
+[32m+[m[32m-0.1548755833 0.1292385464[m
+[32m+[m[32m-0.1548755833 0.1301081733[m
+[32m+[m[32m-0.1548755833 0.1309778002[m
+[32m+[m[32m-0.1548755833 0.1318474271[m
+[32m+[m[32m-0.1548755833 0.1327170540[m
+[32m+[m[32m-0.1548755833 0.1335866809[m
+[32m+[m[32m-0.1548755833 0.1344563078[m
+[32m+[m[32m-0.1548755833 0.1353259347[m
+[32m+[m[32m-0.1548755833 0.1361955616[m
+[32m+[m[32m-0.1548755833 0.1370651885[m
+[32m+[m[32m-0.1548755833 0.1379348154[m
+[32m+[m[32m-0.1548755833 0.1388044423[m
+[32m+[m[32m-0.1548755833 0.1396740692[m
+[32m+[m[32m-0.1548755833 0.1405436961[m
+[32m+[m[32m-0.1548755833 0.1414133230[m
+[32m+[m[32m-0.1548755833 0.1422829499[m
+[32m+[m[32m-0.1548755833 0.1431525768[m
+[32m+[m[32m-0.1548755833 0.1440222037[m
+[32m+[m[32m-0.1548755833 0.1448918306[m
+[32m+[m[32m-0.1548755833 0.1457614576[m
+[32m+[m[32m-0.1548755833 0.1466310845[m
+[32m+[m[32m-0.1548755833 0.1475007114[m
+[32m+[m[32m-0.1548755833 0.1483703383[m
+[32m+[m[32m-0.1548755833 0.1492399652[m
+[32m+[m[32m-0.1548755833 0.1501095921[m
+[32m+[m[32m-0.1548755833 0.1509792190[m
+[32m+[m[32m-0.1548755833 0.1518488459[m
+[32m+[m[32m-0.1548755833 0.1527184728[m
+[32m+[m[32m-0.1548755833 0.1535880997[m
+[32m+[m[32m-0.1548755833 0.1544577266[m
+[32m+[m[32m-0.1548755833 0.1553273535[m
+[32m+[m[32m-0.1548755833 0.1561969804[m
+[32m+[m[32m-0.1548755833 0.1570666073[m
+[32m+[m[32m-0.1548755833 0.1579362342[m
+[32m+[m[32m-0.1548755833 0.1588058611[m
+[32m+[m[32m-0.1548755833 0.1596754880[m
+[32m+[m[32m-0.1548755833 0.1605451149[m
+[32m+[m[32m-0.1548755833 0.1614147418[m
+[32m+[m[32m-0.1548755833 0.1622843687[m
+[32m+[m[32m-0.1548755833 0.1631539956[m
+[32m+[m[32m-0.1548755833 0.1640236225[m
+[32m+[m[32m-0.1548755833 0.1648932494[m
+[32m+[m[32m-0.1548755833 0.1657628763[m
+[32m+[m[32m-0.1548755833 0.1666325032[m
+[32m+[m[32m-0.1548755833 0.1675021301[m
+[32m+[m[32m-0.1548755833 0.1683717570[m
+[32m+[m[32m-0.1548755833 0.1692413839[m
+[32m+[m[32m-0.1548755833 0.1701110108[m
+[32m+[m[32m-0.1548755833 0.1709806377[m
+[32m+[m[32m-0.1548755833 0.1718502646[m
+[32m+[m[32m-0.1548755833 0.1727198915[m
+[32m+[m[32m-0.1548755833 0.1735895184[m
+[32m+[m[32m-0.1548755833 0.1744591453[m
+[32m+[m[32m-0.1548755833 0.1753287722[m
+[32m+[m[32m-0.1548755833 0.1761983992[m
+[32m+[m[32m-0.1548755833 0.1770680261[m
+[32m+[m[32m-0.1548755833 0.1779376530[m
+[32m+[m[32m-0.1548755833 0.1788072799[m
+[32m+[m[32m-0.1548755833 0.1796769068[m
+[32m+[m[32m-0.1548755833 0.1805465337[m
+[32m+[m[32m-0.1548755833 0.1814161606[m
+[32m+[m[32m-0.1548755833 0.1822857875[m
+[32m+[m[32m-0.1548755833 0.1831554144[m
+[32m+[m[32m-0.1548755833 0.1840250413[m
+[32m+[m[32m-0.1548755833 0.1848946682[m
+[32m+[m[32m-0.1548755833 0.1857642951[m
+[32m+[m[32m-0.1548755833 0.1866339220[m
+[32m+[m[32m-0.1548755833 0.1875035489[m
+[32m+[m[32m-0.1548755833 0.1883731758[m
+[32m+[m[32m-0.1548755833 0.1892428027[m
+[32m+[m[32m-0.1548755833 0.1901124296[m
+[32m+[m[32m-0.1548755833 0.1909820565[m
+[32m+[m[32m-0.1548755833 0.1918516834[m
+[32m+[m[32m-0.1548755833 0.1927213103[m
+[32m+[m[32m-0.1548755833 0.1935909372[m
+[32m+[m[32m-0.1548755833 0.1944605641[m
+[32m+[m[32m-0.1548755833 0.1953301910[m
+[32m+[m[32m-0.1548755833 0.1961998179[m
+[32m+[m[32m-0.1548755833 0.1970694448[m
+[32m+[m[32m-0.1548755833 0.1979390717[m
+[32m+[m[32m-0.1548755833 0.1988086986[m
+[32m+[m[32m-0.1548755833 0.1996783255[m
+[32m+[m[32m-0.1548755833 0.2005479524[m
+[32m+[m[32m-0.1548755833 0.2014175793[m
+[32m+[m[32m-0.1548755833 0.2022872062[m
+[32m+[m[32m-0.1548755833 0.2031568331[m
+[32m+[m[32m-0.1548755833 0.2040264600[m
+[32m+[m[32m-0.1548755833 0.2048960869[m
+[32m+[m[32m-0.1548755833 0.2057657138[m
+[32m+[m[32m-0.1548755833 0.2066353408[m
+[32m+[m[32m-0.1548755833 0.2075049677[m
+[32m+[m[32m-0.1548755833 0.2083745946[m
+[32m+[m[32m-0.1548755833 0.2092442215[m
+[32m+[m[32m-0.1548755833 0.2101138484[m
+[32m+[m[32m-0.1548755833 0.2109834753[m
+[32m+[m[32m-0.1548755833 0.2118531022[m
+[32m+[m[32m-0.1548755833 0.2127227291[m
+[32m+[m[32m-0.1548755833 0.2135923560[m
+[32m+[m[32m-0.1548755833 0.2144619829[m
+[32m+[m[32m-0.1548755833 0.2153316098[m
+[32m+[m[32m-0.1548755833 0.2162012367[m
+[32m+[m[32m-0.1548755833 0.2170708636[m
+[32m+[m[32m-0.1548755833 0.2179404905[m
+[32m+[m[32m-0.1548755833 0.2188101174[m
+[32m+[m[32m-0.1548755833 0.2196797443[m
+[32m+[m[32m-0.1548755833 0.2205493712[m
+[32m+[m[32m-0.1548755833 0.2214189981[m
+[32m+[m[32m-0.1548755833 0.2222886250[m
+[32m+[m[32m-0.1548755833 0.2231582519[m
+[32m+[m[32m-0.1548755833 0.2240278788[m
+[32m+[m[32m-0.1548755833 0.2248975057[m
+[32m+[m[32m-0.1548755833 0.2257671326[m
+[32m+[m[32m-0.1548755833 0.2266367595[m
+[32m+[m[32m-0.1548755833 0.2275063864[m
+[32m+[m[32m-0.1548755833 0.2283760133[m
+[32m+[m[32m-0.1548755833 0.2292456402[m
+[32m+[m[32m-0.1548755833 0.2301152671[m
+[32m+[m[32m-0.1548755833 0.2309848940[m
+[32m+[m[32m-0.1548755833 0.2318545209[m
+[32m+[m[32m-0.1548755833 0.2327241478[m
+[32m+[m[32m-0.1548755833 0.2335937747[m
+[32m+[m[32m-0.1548755833 0.2344634016[m
+[32m+[m[32m-0.1548755833 0.2353330285[m
+[32m+[m[32m-0.1548755833 0.2362026554[m
+[32m+[m[32m-0.1548755833 0.2370722824[m
+[32m+[m[32m-0.1548755833 0.2379419093[m
+[32m+[m[32m-0.1548755833 0.2388115362[m
+[32m+[m[32m-0.1548755833 0.2396811631[m
+[32m+[m[32m-0.1548755833 0.2405507900[m
+[32m+[m[32m-0.1548755833 0.2414204169[m
+[32m+[m[32m-0.1548755833 0.2422900438[m
+[32m+[m[32m-0.1548755833 0.2431596707[m
+[32m+[m[32m-0.1548755833 0.2440292976[m
+[32m+[m[32m-0.1548755833 0.2448989245[m
+[32m+[m[32m-0.1548755833 0.2457685514[m
+[32m+[m[32m-0.1548755833 0.2466381783[m
+[32m+[m[32m-0.1548755833 0.2475078052[m
+[32m+[m[32m-0.1548755833 0.2483774321[m
+[32m+[m[32m-0.1548755833 0.2492470590[m
+[32m+[m[32m-0.1548755833 0.2501166859[m
+[32m+[m[32m-0.1548755833 0.2509863128[m
+[32m+[m[32m-0.1548755833 0.2518559397[m
+[32m+[m[32m-0.1548755833 0.2527255666[m
+[32m+[m[32m-0.1548755833 0.2535951935[m
+[32m+[m[32m-0.1548755833 0.2544648204[m
+[32m+[m[32m-0.1548755833 0.2553344473[m
+[32m+[m[32m-0.1548755833 0.2562040742[m
+[32m+[m[32m-0.1548755833 0.2570737011[m
+[32m+[m[32m-0.1548755833 0.2579433280[m
+[32m+[m[32m-0.1548755833 0.2588129549[m
+[32m+[m[32m-0.1548755833 0.2596825818[m
+[32m+[m[32m-0.1548755833 0.2605522087[m
+[32m+[m[32m-0.1548755833 0.2614218356[m
+[32m+[m[32m-0.1548755833 0.2622914625[m
+[32m+[m[32m-0.1548755833 0.2631610894[m
+[32m+[m[32m-0.1548755833 0.2640307163[m
+[32m+[m[32m-0.1548755833 0.2649003432[m
+[32m+[m[32m-0.1548755833 0.2657699701[m
+[32m+[m[32m-0.1548755833 0.2666395970[m
+[32m+[m[32m-0.1548755833 0.2675092240[m
+[32m+[m[32m-0.1548755833 0.2683788509[m
+[32m+[m[32m-0.1548755833 0.2692484778[m
+[32m+[m[32m-0.1548755833 0.2701181047[m
+[32m+[m[32m-0.1548755833 0.2709877316[m
+[32m+[m[32m-0.1548755833 0.2718573585[m
+[32m+[m[32m-0.1548755833 0.2727269854[m
+[32m+[m[32m-0.1548755833 0.2735966123[m
+[32m+[m[32m-0.1548755833 0.2744662392[m
+[32m+[m[32m-0.1548755833 0.2753358661[m
+[32m+[m[32m-0.1548755833 0.2762054930[m
+[32m+[m[32m-0.1548755833 0.2770751199[m
+[32m+[m[32m-0.1548755833 0.2779447468[m
+[32m+[m[32m-0.1548755833 0.2788143737[m
+[32m+[m[32m-0.1548755833 0.2796840006[m
+[32m+[m[32m-0.1548755833 0.2805536275[m
+[32m+[m[32m-0.1548755833 0.2814232544[m
+[32m+[m[32m-0.1548755833 0.2822928813[m
+[32m+[m[32m-0.1548755833 0.2831625082[m
+[32m+[m[32m-0.1548755833 0.2840321351[m
+[32m+[m[32m-0.1548755833 0.2849017620[m
+[32m+[m[32m-0.1548755833 0.2857713889[m
+[32m+[m[32m-0.1548755833 0.2866410158[m
+[32m+[m[32m-0.1548755833 0.2875106427[m
+[32m+[m[32m-0.1548755833 0.2883802696[m
+[32m+[m[32m-0.1548755833 0.2892498965[m
+[32m+[m[32m-0.1548755833 0.2901195234[m
+[32m+[m[32m-0.1548755833 0.2909891503[m
+[32m+[m[32m-0.1548755833 0.2918587772[m
+[32m+[m[32m-0.1548755833 0.2927284041[m
+[32m+[m[32m-0.1548755833 0.2935980310[m
+[32m+[m[32m-0.1548755833 0.2944676579[m
+[32m+[m[32m-0.1548755833 0.2953372848[m
+[32m+[m[32m-0.1548755833 0.2962069117[m
+[32m+[m[32m-0.1548755833 0.2970765386[m
+[32m+[m[32m-0.1548755833 0.2979461656[m
+[32m+[m[32m-0.1548755833 0.2988157925[m
+[32m+[m[32m-0.1548755833 0.2996854194[m
+[32m+[m[32m-0.1546268812 0.3004962142[m
+[32m+[m[32m-0.1542398922 0.3012749885[m
+[32m+[m[32m-0.1538559173 0.3020552534[m
+[32m+[m[32m-0.1534747388 0.3028368884[m
+[32m+[m[32m-0.1530961566 0.3036197842[m
+[32m+[m[32m-0.1527199877 0.3044038424[m
+[32m+[m[32m-0.1523460649 0.3051889744[m
+[32m+[m[32m-0.1519742359 0.3059751001[m
+[32m+[m[32m-0.1516043623 0.3067621479[m
+[32m+[m[32m-0.1512363190 0.3075500532[m
+[32m+[m[32m-0.1508699924 0.3083387581[m
+[32m+[m[32m-0.1505052800 0.3091282109[m
+[32m+[m[32m-0.1501420893 0.3099183648[m
+[32m+[m[32m-0.1497803361 0.3107091779[m
+[32m+[m[32m-0.1494199443 0.3115006123[m
+[32m+[m[32m-0.1490608441 0.3122926337[m
+[32m+[m[32m-0.1487029714 0.3130852105[m
+[32m+[m[32m-0.1483462664 0.3138783135[m
+[32m+[m[32m-0.1479906728 0.3146719154[m
+[32m+[m[32m-0.1476361374 0.3154659907[m
+[32m+[m[32m-0.1472826099 0.3162605152[m
+[32m+[m[32m-0.1469300429 0.3170554663[m
+[32m+[m[32m-0.1465783914 0.3178508229[m
+[32m+[m[32m-0.1462276131 0.3186465650[m
+[32m+[m[32m-0.1458776681 0.3194426739[m
+[32m+[m[32m-0.1455285187 0.3202391320[m
+[32m+[m[32m-0.1451801293 0.3210359229[m
+[32m+[m[32m-0.1448324663 0.3218330310[m
+[32m+[m[32m-0.1444854978 0.3226304417[m
+[32m+[m[32m-0.1441391938 0.3234281412[m
+[32m+[m[32m-0.1437935257 0.3242261164[m
+[32m+[m[32m-0.1434484663 0.3250243551[m
+[32m+[m[32m-0.1431039899 0.3258228454[m
+[32m+[m[32m-0.1427600720 0.3266215766[m
+[32m+[m[32m-0.1424166894 0.3274205380[m
+[32m+[m[32m-0.1420738204 0.3282197199[m
+[32m+[m[32m-0.1417314440 0.3290191130[m
+[32m+[m[32m-0.1413895409 0.3298187086[m
+[32m+[m[32m-0.1410480924 0.3306184985[m
+[32m+[m[32m-0.1407070812 0.3314184750[m
+[32m+[m[32m-0.1403664908 0.3322186306[m
+[32m+[m[32m-0.1400263056 0.3330189587[m
+[32m+[m[32m-0.1396865112 0.3338194527[m
+[32m+[m[32m-0.1393470938 0.3346201067[m
+[32m+[m[32m-0.1390080403 0.3354209148[m
+[32m+[m[32m-0.1386693387 0.3362218719[m
+[32m+[m[32m-0.1383309775 0.3370229727[m
+[32m+[m[32m-0.1379929457 0.3378242127[m
+[32m+[m[32m-0.1376552332 0.3386255872[m
+[32m+[m[32m-0.1373178303 0.3394270922[m
+[32m+[m[32m-0.1369807278 0.3402287236[m
+[32m+[m[32m-0.1366439170 0.3410304775[m
+[32m+[m[32m-0.1363073896 0.3418323505[m
+[32m+[m[32m-0.1359711376 0.3426343390[m
+[32m+[m[32m-0.1356351535 0.3434364398[m
+[32m+[m[32m-0.1352994297 0.3442386495[m
+[32m+[m[32m-0.1349639592 0.3450409652[m
+[32m+[m[32m-0.1346287349 0.3458433838[m
+[32m+[m[32m-0.1342937499 0.3466459023[m
+[32m+[m[32m-0.1339589973 0.3474485178[m
+[32m+[m[32m-0.1336244703 0.3482512274[m
+[32m+[m[32m-0.1332901619 0.3490540280[m
+[32m+[m[32m-0.1329560653 0.3498569168[m
+[32m+[m[32m-0.1321818620 0.3499999563[m
+[32m+[m[32m-0.1313122351 0.3499999563[m
+[32m+[m[32m-0.1304426082 0.3499999563[m
+[32m+[m[32m-0.1295729813 0.3499999563[m
+[32m+[m[32m-0.1287033544 0.3499999563[m
+[32m+[m[32m-0.1278337275 0.3499999563[m
+[32m+[m[32m-0.1269641006 0.3499999563[m
+[32m+[m[32m-0.1260944737 0.3499999563[m
+[32m+[m[32m-0.1252248468 0.3499999563[m
+[32m+[m[32m-0.1243552199 0.3499999563[m
+[32m+[m[32m-0.1234855930 0.3499999563[m
+[32m+[m[32m-0.1226159661 0.3499999563[m
+[32m+[m[32m-0.1217463392 0.3499999563[m
+[32m+[m[32m-0.1208767123 0.3499999563[m
+[32m+[m[32m-0.1200070854 0.3499999563[m
+[32m+[m[32m-0.1191374584 0.3499999563[m
+[32m+[m[32m-0.1182678315 0.3499999563[m
+[32m+[m[32m-0.1173982046 0.3499999563[m
+[32m+[m[32m-0.1165285777 0.3499999563[m
+[32m+[m[32m-0.1156589508 0.3499999563[m
+[32m+[m[32m-0.1147893239 0.3499999563[m
+[32m+[m[32m-0.1139196970 0.3499999563[m
+[32m+[m[32m-0.1130500701 0.3499999563[m
+[32m+[m[32m-0.1121804432 0.3499999563[m
+[32m+[m[32m-0.1113108163 0.3499999563[m
+[32m+[m[32m-0.1104411894 0.3499999563[m
+[32m+[m[32m-0.1095715625 0.3499999563[m
+[32m+[m[32m-0.1087019356 0.3499999563[m
+[32m+[m[32m-0.1078323087 0.3499999563[m
+[32m+[m[32m-0.1069626818 0.3499999563[m
+[32m+[m[32m-0.1060930549 0.3499999563[m
+[32m+[m[32m-0.1052234280 0.3499999563[m
+[32m+[m[32m-0.1043538011 0.3499999563[m
+[32m+[m[32m-0.1034841742 0.3499999563[m
+[32m+[m[32m-0.1026145473 0.3499999563[m
+[32m+[m[32m-0.1017449204 0.3499999563[m
+[32m+[m[32m-0.1008752935 0.3499999563[m
+[32m+[m[32m-0.1000056666 0.3499999563[m
+[32m+[m[32m-0.0991360397 0.3499999563[m
+[32m+[m[32m-0.0982664128 0.3499999563[m
+[32m+[m[32m-0.0973967859 0.3499999563[m
+[32m+[m[32m-0.0965271590 0.3499999563[m
+[32m+[m[32m-0.0956575321 0.3499999563[m
+[32m+[m[32m-0.0947879052 0.3499999563[m
+[32m+[m[32m-0.0939182783 0.3499999563[m
+[32m+[m[32m-0.0930486514 0.3499999563[m
+[32m+[m[32m-0.0921790245 0.3499999563[m
+[32m+[m[32m-0.0913093976 0.3499999563[m
+[32m+[m[32m-0.0904397707 0.3499999563[m
+[32m+[m[32m-0.0895701437 0.3499999563[m
+[32m+[m[32m-0.0887005168 0.3499999563[m
+[32m+[m[32m-0.0878308899 0.3499999563[m
+[32m+[m[32m-0.0869612630 0.3499999563[m
+[32m+[m[32m-0.0860916361 0.3499999563[m
+[32m+[m[32m-0.0852220092 0.3499999563[m
+[32m+[m[32m-0.0843523823 0.3499999563[m
+[32m+[m[32m-0.0834827554 0.3499999563[m
+[32m+[m[32m-0.0826131285 0.3499999563[m
+[32m+[m[32m-0.0817435016 0.3499999563[m
+[32m+[m[32m-0.0808738747 0.3499999563[m
+[32m+[m[32m-0.0800042478 0.3499999563[m
+[32m+[m[32m-0.0791346209 0.3499999563[m
+[32m+[m[32m-0.0782649940 0.3499999563[m
+[32m+[m[32m-0.0773953671 0.3499999563[m
+[32m+[m[32m-0.0765257402 0.3499999563[m
+[32m+[m[32m-0.0756561133 0.3499999563[m
+[32m+[m[32m-0.0747864864 0.3499999563[m
+[32m+[m[32m-0.0739168595 0.3499999563[m
+[32m+[m[32m-0.0730472326 0.3499999563[m
+[32m+[m[32m-0.0721776057 0.3499999563[m
+[32m+[m[32m-0.0713079788 0.3499999563[m
+[32m+[m[32m-0.0704383519 0.3499999563[m
+[32m+[m[32m-0.0695687250 0.3499999563[m
+[32m+[m[32m-0.0686990981 0.3499999563[m
+[32m+[m[32m-0.0678294712 0.3499999563[m
+[32m+[m[32m-0.0669598443 0.3499999563[m
+[32m+[m[32m-0.0660902174 0.3499999563[m
+[32m+[m[32m-0.0652205905 0.3499999563[m
+[32m+[m[32m-0.0643509636 0.3499999563[m
+[32m+[m[32m-0.0634813367 0.3499999563[m
+[32m+[m[32m-0.0626117098 0.3499999563[m
+[32m+[m[32m-0.0617420829 0.3499999563[m
+[32m+[m[32m-0.0608724560 0.3499999563[m
+[32m+[m[32m-0.0600028291 0.3499999563[m
+[32m+[m[32m-0.0591332021 0.3499999563[m
+[32m+[m[32m-0.0582635752 0.3499999563[m
+[32m+[m[32m-0.0573939483 0.3499999563[m
+[32m+[m[32m-0.0565243214 0.3499999563[m
+[32m+[m[32m-0.0556546945 0.3499999563[m
+[32m+[m[32m-0.0547850676 0.3499999563[m
+[32m+[m[32m-0.0539154407 0.3499999563[m
+[32m+[m[32m-0.0530458138 0.3499999563[m
+[32m+[m[32m-0.0521761869 0.3499999563[m
+[32m+[m[32m-0.0513065600 0.3499999563[m
+[32m+[m[32m-0.0504369331 0.3499999563[m
+[32m+[m[32m-0.0495673062 0.3499999563[m
+[32m+[m[32m-0.0486976793 0.3499999563[m
+[32m+[m[32m-0.0478280524 0.3499999563[m
+[32m+[m[32m-0.0469584255 0.3499999563[m
+[32m+[m[32m-0.0460887986 0.3499999563[m
+[32m+[m[32m-0.0452191717 0.3499999563[m
+[32m+[m[32m-0.0443495448 0.3499999563[m
+[32m+[m[32m-0.0434799179 0.3499999563[m
+[32m+[m[32m-0.0426102910 0.3499999563[m
+[32m+[m[32m-0.0417406641 0.3499999563[m
+[32m+[m[32m-0.0408710372 0.3499999563[m
+[32m+[m[32m-0.0400014103 0.3499999563[m
+[32m+[m[32m-0.0391317834 0.3499999563[m
+[32m+[m[32m-0.0382621565 0.3499999563[m
+[32m+[m[32m-0.0373925296 0.3499999563[m
+[32m+[m[32m-0.0365229027 0.3499999563[m
+[32m+[m[32m-0.0356532758 0.3499999563[m
+[32m+[m[32m-0.0347836489 0.3499999563[m
+[32m+[m[32m-0.0339140220 0.3499999563[m
+[32m+[m[32m-0.0330443951 0.3499999563[m
+[32m+[m[32m-0.0321747682 0.3499999563[m
+[32m+[m[32m-0.0313051413 0.3499999563[m
+[32m+[m[32m-0.0304355144 0.3499999563[m
+[32m+[m[32m-0.0295658875 0.3499999563[m
+[32m+[m[32m-0.0286962605 0.3499999563[m
+[32m+[m[32m-0.0278266336 0.3499999563[m
+[32m+[m[32m-0.0269570067 0.3499999563[m
+[32m+[m[32m-0.0260873798 0.3499999563[m
+[32m+[m[32m-0.0252177529 0.3499999563[m
+[32m+[m[32m-0.0243481260 0.3499999563[m
+[32m+[m[32m-0.0234784991 0.3499999563[m
+[32m+[m[32m-0.0226088722 0.3499999563[m
+[32m+[m[32m-0.0217392453 0.3499999563[m
+[32m+[m[32m-0.0208696184 0.3499999563[m
+[32m+[m[32m-0.0199999880 0.3499999563[m
+[1mdiff --git a/project/project/simulation_3d/filling_tank_3d.json b/project/project/simulation_3d/filling_tank_3d.json[m
+[1mnew file mode 100644[m
+[1mindex 00000000..e0f15cef[m
+[1m--- /dev/null[m
+[1m+++ b/project/project/simulation_3d/filling_tank_3d.json[m
+[36m@@ -0,0 +1,140 @@[m
+[32m+[m[32m{[m
+[32m+[m[32m  "characteristic_dimensions": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 0.1,[m
+[32m+[m[32m      "name": "Length",[m
+[32m+[m[32m      "hint": "geometries.system_domain.upper_bound"[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 9.81,[m
+[32m+[m[32m      "name": "Gravity",[m
+[32m+[m[32m      "hint": "gravity"[m
+[32m+[m[32m    },[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "value": 2357.0,[m
+[32m+[m[32m      "name": "Density",[m
+[32m+[m[32m      "hint": "fluid_bodies[name=WaterBody].material.density"[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "simulation_type": "fluid_dynamics",[m
+[32m+[m
+[32m+[m[32m  "geometries": {[m
+[32m+[m[32m    "system_domain": {[m
+[32m+[m[32m      "lower_bound": [ -0.270, -0.170,-0.270 ],[m
+[32m+[m[32m      "upper_bound": [ 0.270, 0.430,0.270 ][m
+[32m+[m[32m    },[m
+[32m+[m[32m    "global_resolution": {[m
+[32m+[m[32m      "particle_spacing": 0.005[m
+[32m+[m[32m    },[m
+[32m+[m[32m    "shapes": [[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "WaterBody",[m
+[32m+[m[32m        "type": "cylinder",[m
+[32m+[m[32m        "radius": 0.020,[m
+[32m+[m[32m        "half_height": 0.0125,[m
+[32m+[m[32m        "transform": {[m
+[32m+[m[32m          "translation": [ -0.168, 0.3925, 0.0 ],[m
+[32m+[m[32m          "rotation_angle": -1.57079632679,[m
+[32m+[m[32m          "rotation_axis": [ 0.0, 0.0, 1.0 ][m
+[32m+[m[32m        }[m
+[32m+[m[32m      },[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "WallBoundary",[m
+[32m+[m[32m        "type": "triangle_mesh",[m
+[32m+[m[32m        "file_name": "sph1.stl",[m
+[32m+[m[32m        "scale": 0.001[m
+[32m+[m[32m      }[m[41m   [m
+[32m+[m[32m    ],[m
+[32m+[m[32m    "oriented_boxes": [[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "Emitter",[m
+[32m+[m[32m        "type": "region",[m
+[32m+[m[32m        "half_size": [ 0.0125, 0.020, 0.020 ],[m
+[32m+[m[32m        "transform": {[m
+[32m+[m[32m          "translation": [ -0.168, 0.3925, 0.0 ],[m
+[32m+[m[32m          "rotation_angle": -1.57079632679,[m
+[32m+[m[32m          "rotation_axis": [ 0.0, 0.0, 1.0 ][m
+[32m+[m[32m        }[m
+[32m+[m[32m      },[m
+[32m+[m[32m      {[m
+[32m+[m[32m        "name": "RiserCheck",[m
+[32m+[m[32m        "type": "region",[m
+[32m+[m[32m        "half_size": [ 0.022, 0.056,0.022 ],[m
+[32m+[m[32m        "transform": {[m
+[32m+[m[32m          "translation": [ 0.0, 0.3, 0.0 ],[m
+[32m+[m[32m          "rotation_angle": 0.0,[m
+[32m+[m[32m          "rotation_axis": [ 0.0, 0.0, 1.0 ][m
+[32m+[m[32m        }[m
+[32m+[m[32m      }[m
+[32m+[m[32m    ][m
+[32m+[m[32m  },[m
+[32m+[m[32m  "particle_generation": {[m
+[32m+[m[32m    "build_and_run": true,[m
+[32m+[m[32m    "settings": {[m
+[32m+[m[32m      "bodies": [[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "name": "WaterBody"[m
+[32m+[m[32m        },[m
+[32m+[m[32m        {[m
+[32m+[m[32m          "name": "WallBoundary",[m
+[32m+[m[32m          "solid_body": {}[m
+[32m+[m[32m        }[m
+[32m+[m[32m      ],[m
+[32m+[m[32m      "relaxation_parameters": {[m
+[32m+[m[32m        "total_iterations": 1000[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  },[m
+[32m+[m[32m  "fluid_bodies": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "name": "WaterBody",[m
+[32m+[m[32m      "material": {[m
+[32m+[m[32m        "type": "weakly_compressible_fluid",[m
+[32m+[m[32m        "density": 2357.0,[m
+[32m+[m[32m        "viscosity": 0.00124[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "particle_reserve_factor": 500.0[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "solid_bodies": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "name": "WallBoundary",[m
+[32m+[m[32m      "material": {[m
+[32m+[m[32m        "type": "rigid_body"[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "fluid_boundary_conditions": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "body_name": "WaterBody",[m
+[32m+[m[32m      "oriented_box": "Emitter",[m
+[32m+[m[32m      "type": "emitter",[m
+[32m+[m[32m      "inflow_speed": 0.5,[m
+[32m+[m[32m      "on_schedule": {[m
+[32m+[m[32m        "switch_on_time": 1.0,[m
+[32m+[m[32m        "duration": 19.0[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "casting_speed": {[m
+[32m+[m[32m        "normal_speed": 0.4,[m
+[32m+[m[32m        "triggered_speed": 0.1[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "riser_check": {[m
+[32m+[m[32m        "oriented_box": "RiserCheck",[m
+[32m+[m[32m        "riser_top_height": 0.3500,[m
+[32m+[m[32m        "riser_bottom_height": 0.25[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ],[m
+[32m+[m[32m  "gravity": [ 0.0, -9.81,0.0],[m
+[32m+[m[32m  "solver_parameters": {[m
+[32m+[m[32m    "end_time": 20.0,[m
+[32m+[m[32m    "output_interval": 0.1,[m
+[32m+[m[32m    "screen_interval": 100,[m
+[32m+[m[32m    "fluid_dynamics": {[m
+[32m+[m[32m      "acoustic_cfl": 0.6,[m
+[32m+[m[32m      "advection_cfl": 0.25,[m
+[32m+[m[32m      "surface_type": "free_surface",[m
+[32m+[m[32m      "particle_sort_frequency": 100[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[1mdiff --git a/project/project/simulation_3d/sph1.stl b/project/project/simulation_3d/sph1.stl[m
+[1mnew file mode 100644[m
+[1mindex 00000000..55077ce8[m
+Binary files /dev/null and b/project/project/simulation_3d/sph1.stl differ

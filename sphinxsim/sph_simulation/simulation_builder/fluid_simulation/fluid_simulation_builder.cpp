@@ -19,14 +19,6 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
     SPHSystem &sph_system = sim.defineSPHSystem(config);
     EntityManager &config_manager = sim.getConfigManager();
     SPHSolver &sph_solver = sim.defineSPHSolver(*this, config);
-    // On restart the checkpointed Compression/Rho are already consistent with
-    // the restored positions, so density regularisation must not recompute them.
-    bool is_restoring = false;
-    if (config_manager.hasEntity<RestartConfig>("RestartConfig"))
-    {
-        auto &restart_config = config_manager.getEntity<RestartConfig>("RestartConfig");
-        is_restoring = restart_config.restore_step_ > 0;
-    }
     //----------------------------------------------------------------------
     // Creating bodies with inital geometry, materials and particles.
     //----------------------------------------------------------------------
@@ -98,16 +90,17 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
     //----------------------------------------------------------------------
     auto &initialization_pipeline = sim.getInitializationPipeline();
     initialization_pipeline.main_steps.push_back(
-        // is_restoring captured by value: the lambda runs after this function returns
-        [&, is_restoring]()
+        [&]()
         {
             initialization_pipeline.run_hooks(InitializationHookPoint::InitialUpdateConfiguration);
 
             initialization_pipeline.run_hooks(InitializationHookPoint::InitialCondition);
             initialization_pipeline.run_hooks(InitializationHookPoint::AfterInitialCondition);
+            initialization_pipeline.run_hooks(InitializationHookPoint::PreSimulationSanityCheck);
 
             initialization_pipeline.run_hooks(InitializationHookPoint::RestartFromFile);
             initialization_pipeline.run_hooks(InitializationHookPoint::UpdateConfigurationAfterRestart);
+            initialization_pipeline.run_hooks(InitializationHookPoint::UpdateStateAfterRestart);
 
             fluid_density_regularization.exec();
             fluid_advection_step_setup.exec();
@@ -116,8 +109,6 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
 
             initialization_pipeline.run_hooks(InitializationHookPoint::InitialObservation);
             body_state_recorder.writeToFile();
-
-            initialization_pipeline.run_hooks(InitializationHookPoint::PreSimulationSanityCheck);
         });
     //----------------------------------------------------------------------
     // Define the time integration method (dual acoustic/advection stepping).
@@ -128,6 +119,7 @@ void FluidSimulationBuilder::buildSimulation(SPHSimulation &sim, const json &con
         [&]()
         {
             Real dt = time_stepper.incrementPhysicalTime(fluid_acoustic_time_step);
+            simulation_pipeline.run_hooks(SimulationHookPoint::BeforeMainPhysicalTimeStep);
             fluid_acoustic_step_1st_half.exec(dt);
             simulation_pipeline.run_hooks(SimulationHookPoint::BoundaryCondition);
             fluid_acoustic_step_2nd_half.exec(dt);

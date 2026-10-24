@@ -42,6 +42,7 @@ class SolidBodyPartForSimbody : public BodyRegionByParticle
     SimTK::MassProperties &getSimTKMassProperties() const;
     SimTK::Vec3 getSimTKMassCenter() const;
     SimTK::Transform getSimTKTransform() const { return SimTKVec3(0.0); }
+    Vecd getMassCenter() const;
 
     SolidBodyPartForSimbody(SPHBody &body, Shape &body_part_shape);
     SolidBodyPartForSimbody(SPHBody &body, SharedPtr<Shape> shape_ptr);
@@ -49,14 +50,11 @@ class SolidBodyPartForSimbody : public BodyRegionByParticle
 
   protected:
     Real min_spacing_sqr_;
-    Vecd initial_mass_center_;
+    SimTK::Vec3 initial_mass_center_;
     SimTK::MassProperties *body_part_mass_properties_;
     Real rho0_;
     Real *Vol_;
     Vecd *pos_;
-
-  private:
-    void initialize();
 };
 } // namespace SPH
 #endif // BODY_PART_FOR_SIMBODY_H

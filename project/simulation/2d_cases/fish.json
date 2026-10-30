@@ -40,6 +40,12 @@
         "name": "Bone",
         "type": "multipolygon",
         "polygons": [{ "operation": "union", "type": "data_file", "file_name": "bone.dat" }]
+      },
+      {
+        "name": "WaterDomain",
+        "type": "bounding_box",
+        "lower_bound": [-0.05, 0.0],
+        "upper_bound": [0.8, 0.4]
       }
     ],
     "oriented_boxes": [
@@ -79,12 +85,12 @@
       "bodies": [
         {
           "name": "WaterBody",
-          "relaxation": { "level_set": {} }
+          "relaxation": { "level_set": { "shape": "WaterDomain" }, "dependent_bodies": ["FishBody"] }
         },
         {
           "name": "FishBody",
           "solid_body": {},
-          "relaxation": { "dependent_bodies": ["WaterBody"] }
+          "adaptation_ratios": [1.15, 2.0]
         }
       ],
       "relaxation_parameters": { "total_iterations": 1000 }
@@ -100,6 +106,7 @@
   "solid_bodies": [
     {
       "name": "FishBody",
+      "adaptation_ratios": [1.15, 2.0],
       "material": {
         "type": "composite_solid",
         "density": 1050.0,

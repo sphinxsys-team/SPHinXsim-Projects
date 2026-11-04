@@ -5,6 +5,8 @@
 #include "geometry_builder.h"
 #include "material_builder.h"
 #include "particle_generation.h"
+#include "sphinxsim_project.h"
+
 
 namespace SPH
 {
@@ -126,6 +128,10 @@ void SPHSimulation::buildSimulation()
         {
             FluidSimulationBuilder fluid_simulation_builder;
             fluid_simulation_builder.buildSimulation(*this, config);
+
+#ifdef SPHINXSIM_PROJECT
+            addExtraEndConditions(config_manager_,getSPHSystem(),simulation_pipeline_,config);
+#endif
             return;
         }
 
@@ -189,7 +195,9 @@ void SPHSimulation::stepTo(Real target_time)
     }
 
     TimeStepper &time_stepper = sph_solver_ptr_->getTimeStepper();
-    while (!time_stepper.isEndTime(target_time))
+    auto *extra_end_condition = sph_system_ptr_->registerSystemVariable<int>("ExtraEndCondition",0);
+
+    while (!time_stepper.isEndTime(target_time) && extra_end_condition->getValue() == 0)
     {
         for (auto &step : simulation_pipeline_.main_steps)
         {

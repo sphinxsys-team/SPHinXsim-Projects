@@ -6,6 +6,44 @@
 namespace SPH
 {
 //=================================================================================================//
+void addExtraEndConditions(
+    EntityManager &config_manager, SPHSystem &sph_system,
+    StagePipeline<SimulationHookPoint> &simulation_pipeline, const json &config)
+{
+    const int extra_end_type = config.value("extra_end_type", 0);
+    auto *extra_end_condition =sph_system.registerSystemVariable<int>(
+            "ExtraEndCondition", 0);
+
+    if (extra_end_type == 1)
+    {
+        auto &scaling_config = config_manager.getEntity<ScalingConfig>("ScalingConfig");
+        const Real end_delay = scaling_config.jsonToReal(json(2.0), "Time");
+        auto *sv_physical_time =&sph_system.svPhysicalTime();
+        auto *sv_riser_top_time =sph_system.registerSystemVariable<Real>(
+                "RisertopTriggertime", Real(-1.0));
+        simulation_pipeline.insert_hook(
+            SimulationHookPoint::AfterUpdateConfiguration,
+            [extra_end_condition,
+             sv_physical_time,
+             sv_riser_top_time,
+             end_delay]()
+            {
+                const Real current_time =sv_physical_time->getValue();
+                const Real riser_top_time =sv_riser_top_time->getValue();
+
+                if (!extra_end_condition->getValue() &&
+                    riser_top_time >= Real(0.0) &&
+                    current_time >= riser_top_time + end_delay)
+                {
+                    extra_end_condition->setValue(1);
+
+                    std::cerr << "Extra end condition triggered."
+                              << std::endl;
+                }
+            });
+    }
+}
+//=================================================================================================//
 bool addExtraMaterial(EntityManager &config_manager, SPHBody &sph_body,
                       const json &config, const std::string &type)
 {
@@ -26,6 +64,8 @@ void addExtraEmitterFeatures(
         auto *sv_physical_time = &fluid_body.getSPHSystem().svPhysicalTime();
         auto *sv_riser_lower_triggertime =fluid_body.getSPHSystem().registerSystemVariable<Real>(
                 "RiserLowerTriggertime", -1.0);
+        auto *sv_riser_top_time = fluid_body.getSPHSystem().registerSystemVariable<Real>(
+                "RisertopTriggertime", -1.0);
         Real riser_top_height =scaling_config.jsonToReal(
                 riser_config.at("riser_top_height"),
                 "Length");
@@ -38,6 +78,7 @@ void addExtraEmitterFeatures(
             [&riser_fluid_height,
              &fluid_solver_config,
              sv_riser_lower_triggertime,
+             sv_riser_top_time,
              sv_physical_time,
              riser_bottom_height,
              riser_top_height]()
@@ -47,8 +88,12 @@ void addExtraEmitterFeatures(
                 if (sv_riser_lower_triggertime->getValue() < 0.0 &&
                     current_height >= riser_bottom_height)
                 {
-                    sv_riser_lower_triggertime->setValue(
-                        sv_physical_time->getValue());
+                    sv_riser_lower_triggertime->setValue(sv_physical_time->getValue());
+                }
+                if (sv_riser_top_time->getValue() < Real(0.0) &&
+                    current_height >= riser_top_height)
+                {
+                    sv_riser_top_time->setValue(sv_physical_time->getValue());
                 }
                 if (fluid_solver_config.emitter_on_ &&
                     current_height >= riser_top_height)

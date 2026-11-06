@@ -15,6 +15,10 @@
 namespace SPH
 {
 //=================================================================================================//
+void addExtraEndConditions(
+    EntityManager &config_manager, SPHSystem &sph_system,
+    StagePipeline<SimulationHookPoint> &simulation_pipeline, const json &config);
+//=================================================================================================//
 class EntityManager;
 
 bool addExtraMaterial(

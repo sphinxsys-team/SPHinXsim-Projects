@@ -13,7 +13,7 @@
 		{
 			"value": 2357.0,
 			"name": "Density",
-			"hint": "fluid_bodies[name=WaterBody].material.density"
+			"hint": "fluid_bodies[name=AluminumBody].material.density"
 		}
 	],
 	"simulation_type": "fluid_dynamics",
@@ -28,7 +28,7 @@
 		},
 		"shapes": [
 			{
-				"name": "WaterBody",
+				"name": "AluminumBody",
 				"type": "bounding_box",
 				"lower_bound": [ -0.1851, 0.3801 ],
 				"upper_bound": [ -0.1507, 0.4050 ]
@@ -76,12 +76,15 @@
 		"settings": {
 			"bodies": [
 				{
-					"name": "WaterBody"
+					"name": "AluminumBody"
 				},
 				{
 					"name": "WallBoundary",
-					"solid_body": {}
-				}
+					"solid_body": {},
+					"relaxation": {
+						"level_set": {}
+					}
+					}
 			],
 			"relaxation_parameters": {
 				"total_iterations": 1000
@@ -90,7 +93,7 @@
 	},
 	"fluid_bodies": [
 		{
-			"name": "WaterBody",
+			"name": "AluminumBody",
 			"material": {
 				"type": "weakly_compressible_fluid",
 				"density": 2357.0,
@@ -116,7 +119,7 @@
 	],
 	"fluid_boundary_conditions": [
 		{
-			"body_name": "WaterBody",
+			"body_name": "AluminumBody",
 			"oriented_box": "Emitter",
 			"type": "emitter",
 			"casting_speed": {
@@ -136,7 +139,7 @@
 	],
 	"initial_conditions": [
 		{
-			"body_name": "WaterBody",
+			"body_name": "AluminumBody",
 			"assignments": [
 				{
 					"variable": {
@@ -160,7 +163,7 @@
 	],
 	"gravity": [ 0.0, -9.81 ],
 	"solver_parameters": {
-		"end_time": 12.0,
+		"end_time": 15.0,
 		"output_interval": 0.1,
 		"screen_interval": 100,
 		"fluid_dynamics": {
